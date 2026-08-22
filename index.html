@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111827">
+<title>我的股票記帳</title><link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--bg:#0b1020;--card:#121a2b;--card2:#172036;--text:#edf2f7;--muted:#9aa6b2;--line:#26324a;--pos:#22c55e;--neg:#ef4444;--accent:#60a5fa}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;background:var(--bg);color:var(--text)}.wrap{max-width:1100px;margin:auto;padding:14px}h1{font-size:24px;margin:6px 0 2px}.sub{color:var(--muted);font-size:13px;margin-bottom:12px}.tabs{display:flex;gap:8px;overflow:auto;position:sticky;top:0;padding:6px 0 10px;background:var(--bg);z-index:5}button,.btn{border:1px solid var(--line);background:var(--card2);color:var(--text);padding:10px 12px;border-radius:10px;cursor:pointer}button.active,.primary{background:var(--accent);color:#07111f;border:none;font-weight:800}.danger{background:#3a1720;color:#fecaca}.panel{display:none}.panel.active{display:block}.grid{display:grid;gap:12px}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}.kpi .label{color:var(--muted);font-size:12px}.kpi .value{font-size:22px;font-weight:800;margin-top:4px}.pos{color:var(--pos)}.neg{color:var(--neg)}.muted{color:var(--muted)}.form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}input,select,textarea{width:100%;background:#0d1526;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px}textarea{min-height:70px}.span4{grid-column:span 4}.section-title{display:flex;justify-content:space-between;align-items:center;margin:18px 0 8px}.section-title h2{font-size:17px;margin:0}.pill{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:3px 7px;border-radius:999px}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}.tiny{padding:5px 8px;font-size:12px}.empty{text-align:center;color:var(--muted);padding:20px}.footer{text-align:center;color:var(--muted);font-size:12px;padding:24px 4px}@media(max-width:800px){.g4{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}.form{grid-template-columns:1fr 1fr}.span4{grid-column:span 2}}
+
+/* v4：手機左右滑動切換分頁 */
+body{overscroll-behavior-x:none}
+.panel.active{display:block;animation:panelIn .18s ease-out}
+@keyframes panelIn{from{opacity:.35;transform:translateX(var(--swipe-shift,0))}to{opacity:1;transform:translateX(0)}}
+.tabs{-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+@media(max-width:800px){
+  .wrap{touch-action:pan-y}
+  .scroll,input,textarea,select,button,.btn{touch-action:auto}
+}
+
+</style></head>
+<body><div class="wrap"><h1>📒 我的股票記帳</h1><div class="sub">手機可左右滑動切換分頁｜已預載截至 2026/08/22 已知持倉與交易｜長期 / 波段分帳；同一連續持倉分批進出仍算同一筆完整交易。</div>
+<div class="tabs"><button class="tab active" data-tab="dash">總覽</button><button class="tab" data-tab="tx">交易</button><button class="tab" data-tab="pos">持倉</button><button class="tab" data-tab="perf">績效</button><button class="tab" data-tab="quotes">現價</button><button class="tab" data-tab="backup">備份</button></div>
+<section id="dash" class="panel active"><div class="grid g4" id="kpis"></div><div class="card muted" style="margin-top:12px" id="fxDash">目前匯率會在開啟 App 後自動更新；歷史成交匯率不會被改寫。</div><div class="section-title"><h2>帳戶摘要</h2></div><div class="grid g2" id="accountSummary"></div></section>
+<section id="tx" class="panel"><div class="section-title"><h2>新增交易</h2><span class="pill">平均成本法</span></div><div class="card"><form id="txForm" class="form">
+<div><label>日期時間</label><input id="date" type="datetime-local" required></div><div><label>帳戶</label><select id="account"><option>長期</option><option>波段</option></select></div><div><label>代號</label><input id="ticker" placeholder="MU" required></div><div><label>資產</label><select id="asset"><option>美股</option><option>ETF</option><option>台股</option><option>期貨/幣</option><option>其他</option></select></div>
+<div><label>動作</label><select id="side"><option value="BUY">買進</option><option value="SELL">賣出</option><option value="INIT">期初持倉</option></select></div><div><label>數量</label><input id="qty" type="number" step="0.000001" min="0" required></div><div><label>成交價</label><input id="price" type="number" step="0.000001" min="0" required></div><div><label>手續費（原幣）</label><input id="fee" type="number" step="0.000001" value="0"></div>
+<div><label>成交當下匯率 TWD/原幣（USD 新交易會預填最新匯率，儲存後不再變動）</label><input id="fx" type="number" step="0.000001" value="1"></div><div><label>原始停損</label><input id="stop" type="number" step="0.000001"></div><div><label>幣別</label><select id="currency"><option>USD</option><option>TWD</option><option>USDT</option></select></div><div><label>出場原因</label><select id="exitReason"><option value="">—</option><option>停損</option><option>停利</option><option>分批停利</option><option>移動停損</option><option>基本面改變</option><option>其他</option></select></div>
+<div class="span4"><label>備註</label><textarea id="note" placeholder="回檔加碼、財報後突破、長期定投…"></textarea></div><div class="span4"><button class="primary" type="submit">儲存交易</button></div></form></div>
+<div class="section-title"><h2>交易紀錄</h2><button class="tiny danger" id="clearAll">清空全部</button></div><div class="card scroll"><table id="txTable"></table></div></section>
+<section id="pos" class="panel"><div class="section-title"><h2>目前持倉</h2><span class="pill">現價與 USD/TWD 會自動更新；失敗時保留最後資料</span></div><div class="card scroll"><table id="posTable"></table></div></section>
+<section id="perf" class="panel">
+<div class="grid g4" id="perfKpis"></div>
+<div class="section-title"><h2>美股波段完整交易樣本</h2><span class="pill">分批進出、持倉歸零才算一筆</span></div>
+<div class="card scroll"><table id="tradeTable"></table></div>
+<div class="section-title"><h2>原油 / 其他歷史完整交易</h2><span class="pill">與美股績效分開看</span></div>
+<div class="card scroll"><table id="manualTradeTable"></table></div>
+</section>
+<section id="quotes" class="panel">
+<div class="section-title"><h2>即時行情</h2><span class="pill" id="autoStatus">尚未更新</span></div>
+<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button id="refreshQuotes" class="primary">立即更新全部</button><span class="muted">開啟 App 時會自動更新，App 開著時每 15 分鐘更新一次。來源：Yahoo Finance 公開行情端點；若服務暫時失敗，會保留最後成功資料。</span></div></div>
+<div class="section-title"><h2>手動覆寫現價</h2><span class="pill">自動資料異常時可用</span></div><div class="card"><form id="quoteForm" class="form"><div><label>代號</label><input id="qTicker" required></div><div><label>現價</label><input id="qPrice" type="number" step="0.000001" required></div><div><label>目前匯率</label><input id="qFx" type="number" step="0.000001" value="1"></div><div style="align-self:end"><button class="primary">更新</button></div></form></div><div class="section-title"><h2>行情表</h2></div><div class="card scroll"><table id="quoteTable"></table></div></section>
+<section id="backup" class="panel"><div class="section-title"><h2>備份與還原</h2></div><div class="card"><p class="muted">資料存在瀏覽器 localStorage。換手機或清除資料前，請匯出 JSON。</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="exportJson" class="primary">匯出完整 JSON</button><button id="exportCsv">匯出交易 CSV</button><label class="btn">匯入 JSON<input id="importJson" type="file" accept=".json" style="display:none"></label></div></div><div class="section-title"><h2>資金池</h2></div><div class="card form"><div><label>長期待命 TWD</label><input id="cashLong" type="number"></div><div><label>波段待命 TWD</label><input id="cashSwing" type="number"></div><div><label>貸款扣款帳戶 TWD</label><input id="cashLoan" type="number"></div><div><label>定存 / 緊急預備金 TWD</label><input id="cashReserve" type="number"></div><div class="span4"><button id="saveCash" class="primary">儲存資金池</button></div></div></section>
+<div class="footer">Stock Ledger MVP v4（自動行情＋滑動分頁）｜本工具只做記帳與績效追蹤，不會自動下單。</div></div>
+<script>
+const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[{"id":"mu-init-20260818","date":"2026-08-18T23:59","account":"長期","ticker":"MU","asset":"美股","side":"INIT","qty":6,"price":975.1,"fee":0,"fx":31.85,"stop":null,"currency":"USD","exitReason":"","note":"期初持倉回填：先前已持有6股，平均成本約975.10。"},{"id":"mu-buy-20260819","date":"2026-08-19T22:22:47","account":"長期","ticker":"MU","asset":"美股","side":"BUY","qty":1,"price":918.6799,"fee":0.1,"fx":31.911,"stop":null,"currency":"USD","exitReason":"","note":"2026/08/19 回檔加碼；券商總計918.78 USD、台幣交割約29,319元。"},{"id":"avgo-init-20260821","date":"2026-08-21T16:00","account":"長期","ticker":"AVGO","asset":"美股","side":"INIT","qty":23,"price":407.239565,"fee":0,"fx":31.85,"stop":null,"currency":"USD","exitReason":"","note":"2026/08/21 持倉快照回填。已知曾於8/13買5股@423.7699、8/14買7股@399.7272；因更早交易未完整保存，為避免重複計算，以23股券商平均成本整體回填。"},{"id":"qqqm-init-20260821","date":"2026-08-21T16:00","account":"長期","ticker":"QQQM","asset":"ETF","side":"INIT","qty":16,"price":273.243788,"fee":0,"fx":31.85,"stop":null,"currency":"USD","exitReason":"","note":"2026/08/21 持倉快照回填。更早分批交易明細不完整，以券商16股平均成本整體回填。"},{"id":"tsla-init-20260821","date":"2026-08-21T16:00","account":"長期","ticker":"TSLA","asset":"美股","side":"INIT","qty":4,"price":408.2775,"fee":0,"fx":31.85,"stop":null,"currency":"USD","exitReason":"","note":"2026/08/21 持倉快照回填；TSLA為長期投資，過去即持續分批買進。"},{"id":"pgr-buy-20260821","date":"2026-08-21T16:10","account":"長期","ticker":"PGR","asset":"美股","side":"BUY","qty":2,"price":220.0,"fee":0,"fx":31.85,"stop":null,"currency":"USD","exitReason":"","note":"PGR 第一批長期配置；金融／保險分散部位。"},{"id":"powr-buy-20260821","date":"2026-08-21T16:12","account":"長期","ticker":"POWR","asset":"ETF","side":"BUY","qty":30,"price":25.95,"fee":0,"fx":31.85,"stop":null,"currency":"USD","exitReason":"","note":"POWR 第一批長期配置；美國電力基礎建設。"},{"id":"prgs-buy-20260819","date":"2026-08-20T00:08:35","account":"波段","ticker":"PRGS","asset":"美股","side":"BUY","qty":30,"price":43.55,"fee":3.0,"fx":31.911,"stop":40.0,"currency":"USD","exitReason":"","note":"PRGS 波段；成交價金1306.5 USD、含費用總成本1309.5 USD；原始停損40。"},{"id":"be-buy-20260731","date":"2026-07-31T09:30","account":"波段","ticker":"BE","asset":"美股","side":"BUY","qty":5,"price":214.1,"fee":0,"fx":31.85,"stop":null,"currency":"USD","exitReason":"","note":"歷史回填；進場日期依既有紀錄。"},{"id":"be-sell-20260812","date":"2026-08-12T16:00","account":"波段","ticker":"BE","asset":"美股","side":"SELL","qty":5,"price":240.0,"fee":0.53,"fx":31.85,"stop":null,"currency":"USD","exitReason":"停利","brokerPnlBase":128.97,"brokerPnlTwd":4159.28,"tradeReturnPct":12.05,"note":"券商正式已實現：+128.97 USD / +4,159.28 TWD / +12.05%。"},{"id":"sndk-buy-20260804","date":"2026-08-04T09:30","account":"波段","ticker":"SNDK","asset":"美股","side":"BUY","qty":1,"price":1428.1,"fee":0,"fx":31.85,"stop":null,"currency":"USD","exitReason":"","note":"歷史回填。"},{"id":"sndk-sell-20260814","date":"2026-08-14T16:00","account":"波段","ticker":"SNDK","asset":"美股","side":"SELL","qty":1,"price":1640.0,"fee":0.14,"fx":31.85,"stop":null,"currency":"USD","exitReason":"停利","brokerPnlBase":211.76,"brokerPnlTwd":6779.5,"tradeReturnPct":14.83,"note":"券商正式已實現：+211.76 USD / +6,779.50 TWD / +14.83%。"},{"id":"cls-buy1-20260811","date":"2026-08-11T09:30","account":"波段","ticker":"CLS","asset":"美股","side":"BUY","qty":5,"price":311.0,"fee":0.5,"fx":32.245,"stop":null,"currency":"USD","exitReason":"","note":"分批進場1；台幣交割紀錄約50,142元。"},{"id":"cls-buy2-20260812","date":"2026-08-12T09:30","account":"波段","ticker":"CLS","asset":"美股","side":"BUY","qty":5,"price":333.7399,"fee":0.5,"fx":32.22,"stop":null,"currency":"USD","exitReason":"","note":"分批進場2；券商整體平均成本約322.47 USD。"},{"id":"cls-sell1-20260817","date":"2026-08-17T16:00","account":"波段","ticker":"CLS","asset":"美股","side":"SELL","qty":5,"price":340.0,"fee":0.54,"fx":31.83,"stop":null,"currency":"USD","exitReason":"分批停利","brokerPnlBase":87.11,"brokerPnlTwd":2772.28,"note":"第一批出場；券商已實現 +87.11 USD / +2,772.28 TWD / +5.4%。整筆CLS尚未結束。"},{"id":"cls-sell2-20260818","date":"2026-08-18T16:00","account":"波段","ticker":"CLS","asset":"美股","side":"SELL","qty":5,"price":318.0,"fee":0.54,"fx":31.95,"stop":null,"currency":"USD","exitReason":"其他","brokerPnlBase":-22.89,"brokerPnlTwd":-731.22,"tradeReturnPct":1.99,"note":"第二批出場、整筆持倉歸零。整筆CLS總實現 +64.22 USD / +2,041.06 TWD，約+1.99%。"},{"id":"glw-buy-20260817","date":"2026-08-17T09:30","account":"波段","ticker":"GLW","asset":"美股","side":"BUY","qty":9,"price":175.0,"fee":0.9,"fx":31.85,"stop":null,"currency":"USD","exitReason":"","note":"券商單位成本約175.10 USD。"},{"id":"glw-sell-20260819","date":"2026-08-19T16:00","account":"波段","ticker":"GLW","asset":"美股","side":"SELL","qty":9,"price":154.0,"fee":0.93,"fx":31.85,"stop":null,"currency":"USD","exitReason":"停損","brokerPnlBase":-190.83,"brokerPnlTwd":-6095.11,"tradeReturnPct":-12.11,"note":"券商正式已實現：-190.83 USD / -6,095.11 TWD / -12.11%。"}],"manualTrades":[{"ticker":"CLUSDT","asset":"原油永續","direction":"SHORT","open":"2026-08-13T19:57:16","close":"2026-08-14T19:50:28","entry":80.8,"exit":80.55,"qty":29.7,"pnl":3.63,"currency":"USDT","returnPct":0.15,"priceReturnPct":0.3094,"rMultiple":null,"exitReason":"平倉","note":"全倉1x；持有約23.8867小時；原始停損未提供。"},{"ticker":"CLUSDT","asset":"原油永續","direction":"SHORT","open":"2026-08-15T14:11:47","close":"2026-08-15T15:15:44","entry":81.7,"exit":80.11,"qty":17.13,"pnl":26.12,"currency":"USDT","returnPct":3.73,"priceReturnPct":1.9461,"rMultiple":null,"exitReason":"平倉","note":"全倉2x；持有約1.0658小時；原始停損未提供。"},{"ticker":"CLUSDT","asset":"原油永續","direction":"SHORT","open":"2026-08-15T15:25:40","close":"2026-08-17T12:55:38","entry":80.52,"exit":81.43,"qty":62.11,"pnl":-63.63,"currency":"USDT","returnPct":-2.54,"priceReturnPct":-1.1302,"rMultiple":null,"exitReason":"停損","note":"全倉2x；持有約45.4994小時；原始停損未提供。"}],"quotes":{"AVGO":{"price":374.11,"fx":31.85,"updated":"2026-08-21T16:00:00+08:00"},"MU":{"price":978.4,"fx":31.85,"updated":"2026-08-21T16:00:00+08:00"},"PRGS":{"price":42.98,"fx":31.85,"updated":"2026-08-21T16:00:00+08:00"},"QQQM":{"price":293.33,"fx":31.85,"updated":"2026-08-21T16:00:00+08:00"},"TSLA":{"price":348.78,"fx":31.85,"updated":"2026-08-21T16:00:00+08:00"},"PGR":{"price":220.0,"fx":31.85,"updated":"2026-08-21T16:10:00+08:00"},"POWR":{"price":25.95,"fx":31.85,"updated":"2026-08-21T16:12:00+08:00"}},"cash":{"長期":661000,"波段":550000,"loan":100000,"reserve":200000},"meta":{"preloaded":"2026-08-22","note":"依2026/08/22前對話與券商截圖回填；不完整的更早長期交易以期初持倉快照記錄，避免虛構逐筆成交。長期待命資金661,000元為70萬元扣除PGR/POWR首批後的近似值。"}};let db=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(DEFAULT_DB));if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
+const $=id=>document.getElementById(id),N=x=>Number(x||0),F=(x,d=2)=>Number.isFinite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d}):'—',M=x=>Number.isFinite(x)?Math.round(x).toLocaleString('zh-TW'):'—',C=x=>x>0?'pos':x<0?'neg':'',D=s=>new Date(s),E=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+
+const tabButtons=[...document.querySelectorAll('.tab')];
+const panels=[...document.querySelectorAll('.panel')];
+function showTabByIndex(index,direction=0){
+  if(index<0||index>=tabButtons.length)return;
+  tabButtons.forEach(x=>x.classList.remove('active'));
+  panels.forEach(x=>x.classList.remove('active'));
+  const btn=tabButtons[index],panel=$(btn.dataset.tab);
+  btn.classList.add('active');
+  if(panel){
+    panel.style.setProperty('--swipe-shift',direction>0?'18px':direction<0?'-18px':'0px');
+    panel.classList.add('active');
+  }
+  btn.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+}
+function activeTabIndex(){return Math.max(0,tabButtons.findIndex(x=>x.classList.contains('active')))}
+tabButtons.forEach((b,i)=>b.onclick=()=>showTabByIndex(i,0));
+
+/* 左右滑動切換分頁：
+   - 左滑：下一頁
+   - 右滑：上一頁
+   - 表格橫向捲動、輸入欄、按鈕等互動區域不觸發
+   - 必須以水平手勢為主，避免上下捲動時誤切頁 */
+let swipeStartX=0,swipeStartY=0,swipeTracking=false;
+function swipeBlockedTarget(target){
+  return !!target.closest('input,textarea,select,button,a,label,.btn,.scroll,table');
+}
+document.addEventListener('touchstart',e=>{
+  if(e.touches.length!==1||swipeBlockedTarget(e.target)){swipeTracking=false;return}
+  swipeTracking=true;
+  swipeStartX=e.touches[0].clientX;
+  swipeStartY=e.touches[0].clientY;
+},{passive:true});
+document.addEventListener('touchend',e=>{
+  if(!swipeTracking||e.changedTouches.length!==1)return;
+  swipeTracking=false;
+  const dx=e.changedTouches[0].clientX-swipeStartX;
+  const dy=e.changedTouches[0].clientY-swipeStartY;
+  const minDistance=60;
+  if(Math.abs(dx)<minDistance||Math.abs(dx)<Math.abs(dy)*1.25)return;
+  const current=activeTabIndex();
+  if(dx<0)showTabByIndex(current+1,1);
+  else showTabByIndex(current-1,-1);
+},{passive:true});
+
+function setNow(){const z=new Date();z.setMinutes(z.getMinutes()-z.getTimezoneOffset());$('date').value=z.toISOString().slice(0,16)}setNow();
+$('txForm').onsubmit=e=>{e.preventDefault();const t={id:crypto.randomUUID(),date:$('date').value,account:$('account').value,ticker:$('ticker').value.trim().toUpperCase(),asset:$('asset').value,side:$('side').value,qty:N($('qty').value),price:N($('price').value),fee:N($('fee').value),fx:N($('fx').value)||1,stop:$('stop').value===''?null:N($('stop').value),currency:$('currency').value,exitReason:$('exitReason').value,note:$('note').value.trim()};if(!t.ticker||t.qty<=0)return alert('請確認代號與數量');db.transactions.push(t);save();e.target.reset();$('fee').value=0;$('fx').value=1;$('currency').value='USD';setNow()};
+function compute(){const tx=[...db.transactions].sort((a,b)=>D(a.date)-D(b.date)),pos={},realized=[],trades=[],active={};for(const t of tx){const k=t.account+'|'+t.ticker;if(!pos[k])pos[k]={account:t.account,ticker:t.ticker,asset:t.asset,currency:t.currency,qty:0,costBase:0,costTwd:0};const p=pos[k],gross=t.qty*t.price,twd=gross*t.fx,feeTwd=t.fee*t.fx;if(t.side==='BUY'||t.side==='INIT'){p.costBase+=gross+t.fee;p.costTwd+=twd+feeTwd;p.qty+=t.qty;if(t.account==='波段'){if(!active[t.ticker]||active[t.ticker].closed)active[t.ticker]={ticker:t.ticker,open:t.date,buyCostTwd:0,realizedTwd:0,riskTwd:0,closed:false,exitReason:''};const tr=active[t.ticker];tr.buyCostTwd+=twd+feeTwd;if(t.stop!=null&&t.price>t.stop)tr.riskTwd+=(t.price-t.stop)*t.qty*t.fx}}else if(t.side==='SELL'){if(p.qty+1e-9<t.qty)continue;const avgB=p.costBase/p.qty,avgT=p.costTwd/p.qty,costB=avgB*t.qty,costT=avgT*t.qty,calcPnlB=(gross-t.fee)-costB,calcPnlT=(twd-feeTwd)-costT,pnlB=t.brokerPnlBase!=null?N(t.brokerPnlBase):calcPnlB,pnlT=t.brokerPnlTwd!=null?N(t.brokerPnlTwd):calcPnlT;realized.push({...t,pnlBase:pnlB,pnlTwd:pnlT});p.costBase-=costB;p.costTwd-=costT;p.qty-=t.qty;if(Math.abs(p.qty)<1e-8){p.qty=0;p.costBase=0;p.costTwd=0}if(t.account==='波段'&&active[t.ticker]){const tr=active[t.ticker];tr.realizedTwd+=pnlT;tr.exitReason=t.exitReason||tr.exitReason;if(p.qty===0){tr.close=t.date;tr.closed=true;tr.returnPct=t.tradeReturnPct!=null?N(t.tradeReturnPct):(tr.buyCostTwd?tr.realizedTwd/tr.buyCostTwd*100:NaN);tr.rMultiple=tr.riskTwd>0?tr.realizedTwd/tr.riskTwd:NaN;trades.push({...tr})}}}}return{positions:Object.values(pos),realized,trades}}
+function renderDash(c){let mv=0,cost=0,unr=0;for(const p of c.positions.filter(x=>x.qty>0)){cost+=p.costTwd;const q=db.quotes[p.ticker];if(q){const v=p.qty*q.price*q.fx;mv+=v;unr+=v-p.costTwd}}const r=c.realized.reduce((s,x)=>s+x.pnlTwd,0);$('kpis').innerHTML=[['已知持倉市值',M(mv),''],['持倉成本',M(cost),''],['未實現損益',M(unr),C(unr)],['已實現損益',M(r),C(r)]].map(x=>`<div class="card kpi"><div class="label">${x[0]}</div><div class="value ${x[2]}">${x[1]} TWD</div></div>`).join('');$('accountSummary').innerHTML=['長期','波段'].map(a=>{const ps=c.positions.filter(p=>p.account===a&&p.qty>0),cst=ps.reduce((s,p)=>s+p.costTwd,0);return `<div class="card"><b>${a}</b><div class="muted" style="margin-top:8px">持倉成本</div><div style="font-size:20px;font-weight:800">${M(cst)} TWD</div><div class="muted" style="margin-top:8px">待命資金</div><div>${M(N(db.cash[a]))} TWD</div><div class="muted" style="margin-top:8px">標的：${ps.map(p=>E(p.ticker)).join('、')||'無'}</div></div>`}).join('')}
+function renderTx(){const rows=[...db.transactions].sort((a,b)=>D(b.date)-D(a.date));$('txTable').innerHTML=`<thead><tr><th>日期</th><th>帳戶</th><th>代號</th><th>動作</th><th>數量</th><th>價格</th><th>費用</th><th>匯率</th><th>停損</th><th></th></tr></thead><tbody>`+(rows.length?rows.map(t=>`<tr><td>${E(t.date.replace('T',' '))}</td><td>${E(t.account)}</td><td>${E(t.ticker)}</td><td>${t.side}</td><td>${F(t.qty,4)}</td><td>${F(t.price,4)}</td><td>${F(t.fee)}</td><td>${F(t.fx,4)}</td><td>${t.stop==null?'—':F(t.stop,4)}</td><td><button class="tiny danger" onclick="delTx('${t.id}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="10" class="empty">尚無交易</td></tr>`)+`</tbody>`}window.delTx=id=>{if(confirm('確定刪除？')){db.transactions=db.transactions.filter(x=>x.id!==id);save()}};$('clearAll').onclick=()=>{if(confirm('確定清空全部交易？')){db.transactions=[];save()}};
+function renderPos(c){const ps=c.positions.filter(p=>p.qty>0);$('posTable').innerHTML=`<thead><tr><th>代號</th><th>帳戶</th><th>數量</th><th>平均成本</th><th>歷史有效匯率</th><th>現價</th><th>目前匯率</th><th>市值 TWD</th><th>未實現</th><th>股價影響</th><th>匯率影響</th><th>報酬率</th></tr></thead><tbody>`+(ps.length?ps.map(p=>{const avgB=p.costBase/p.qty,histFx=p.costBase?p.costTwd/p.costBase:NaN,q=db.quotes[p.ticker],baseNow=q?p.qty*q.price:NaN,mv=q?baseNow*q.fx:NaN,pnl=q?mv-p.costTwd:NaN,pricePnl=q&&Number.isFinite(histFx)?baseNow*histFx-p.costTwd:NaN,fxPnl=q&&Number.isFinite(histFx)?baseNow*(q.fx-histFx):NaN,ret=q&&p.costTwd?pnl/p.costTwd*100:NaN;return `<tr><td>${E(p.ticker)}</td><td>${E(p.account)}</td><td>${F(p.qty,4)}</td><td>${F(avgB,4)} ${E(p.currency)}</td><td>${Number.isFinite(histFx)?F(histFx,4):'—'}</td><td>${q?F(q.price,4):'—'}</td><td>${q?F(q.fx,4):'—'}</td><td>${M(mv)}</td><td class="${C(pnl)}">${M(pnl)}</td><td class="${C(pricePnl)}">${M(pricePnl)}</td><td class="${C(fxPnl)}">${M(fxPnl)}</td><td class="${C(ret)}">${Number.isFinite(ret)?F(ret,2)+'%':'—'}</td></tr>`}).join(''):`<tr><td colspan="12" class="empty">尚無持倉</td></tr>`)+`</tbody>`}
+function renderPerf(c){const tr=c.trades,w=tr.filter(x=>x.realizedTwd>0),l=tr.filter(x=>x.realizedTwd<0),wr=tr.length?w.length/tr.length*100:NaN,aw=w.length?w.reduce((s,x)=>s+x.returnPct,0)/w.length:NaN,al=l.length?l.reduce((s,x)=>s+Math.abs(x.returnPct),0)/l.length:NaN,p=Number.isFinite(aw)&&Number.isFinite(al)&&al?aw/al:NaN,ex=Number.isFinite(wr)&&Number.isFinite(aw)&&Number.isFinite(al)?wr/100*aw-(1-wr/100)*al:NaN;$('perfKpis').innerHTML=[['完整交易',tr.length+' 筆',''],['勝率',Number.isFinite(wr)?F(wr,1)+'%':'—',''],['Payoff',Number.isFinite(p)?F(p,2)+':1':'—',''],['Expectancy',Number.isFinite(ex)?F(ex,2)+'% / trade':'—',C(ex)]].map(x=>`<div class="card kpi"><div class="label">${x[0]}</div><div class="value ${x[2]}">${x[1]}</div></div>`).join('');$('tradeTable').innerHTML=`<thead><tr><th>標的</th><th>開倉</th><th>平倉</th><th>投入成本</th><th>實現損益</th><th>報酬</th><th>R</th><th>持有</th><th>原因</th></tr></thead><tbody>`+(tr.length?tr.map(x=>{const h=(D(x.close)-D(x.open))/36e5,hold=h<24?F(h,1)+' hr':F(h/24,1)+' d';return `<tr><td>${E(x.ticker)}</td><td>${E(x.open.replace('T',' '))}</td><td>${E(x.close.replace('T',' '))}</td><td>${M(x.buyCostTwd)}</td><td class="${C(x.realizedTwd)}">${M(x.realizedTwd)}</td><td class="${C(x.returnPct)}">${F(x.returnPct,2)}%</td><td>${Number.isFinite(x.rMultiple)?F(x.rMultiple,2)+'R':'N/A'}</td><td>${hold}</td><td>${E(x.exitReason||'—')}</td></tr>`}).join(''):`<tr><td colspan="9" class="empty">尚無完整交易</td></tr>`)+`</tbody>`}
+
+function renderManualTrades(){
+  const tr=[...(db.manualTrades||[])].sort((a,b)=>D(b.close)-D(a.close));
+  const el=$('manualTradeTable'); if(!el)return;
+  el.innerHTML=`<thead><tr><th>標的</th><th>方向</th><th>開倉</th><th>平倉</th><th>進場</th><th>出場</th><th>數量</th><th>實現損益</th><th>平台報酬</th><th>價格報酬</th><th>持有</th></tr></thead><tbody>`+
+  (tr.length?tr.map(x=>{const h=(D(x.close)-D(x.open))/36e5,hold=h<24?F(h,2)+' hr':F(h/24,2)+' d';
+    return `<tr><td>${E(x.ticker)}</td><td>${E(x.direction)}</td><td>${E(x.open.replace('T',' '))}</td><td>${E(x.close.replace('T',' '))}</td><td>${F(x.entry,4)}</td><td>${F(x.exit,4)}</td><td>${F(x.qty,4)}</td><td class="${C(x.pnl)}">${F(x.pnl,2)} ${E(x.currency)}</td><td class="${C(x.returnPct)}">${F(x.returnPct,2)}%</td><td class="${C(x.priceReturnPct)}">${F(x.priceReturnPct,4)}%</td><td>${hold}</td></tr>`
+  }).join(''):`<tr><td colspan="11" class="empty">尚無其他歷史交易</td></tr>`)+`</tbody>`;
+}
+const YAHOO_BASE='https://query1.finance.yahoo.com/v8/finance/chart/';
+function yahooSymbol(t){const map=(db.meta&&db.meta.symbolMap)||{};return map[t]||t}
+async function fetchYahooPrice(symbol){
+  const u=YAHOO_BASE+encodeURIComponent(symbol)+'?range=1d&interval=1m&includePrePost=true';
+  const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
+  const j=await r.json(),m=j?.chart?.result?.[0]?.meta;if(!m)throw new Error('No quote');
+  const p=Number(m.regularMarketPrice ?? m.previousClose);if(!Number.isFinite(p))throw new Error('No price');
+  return {price:p,exchange:m.exchangeName||'',currency:m.currency||'',marketState:m.marketState||''};
+}
+async function refreshAllQuotes(showAlert=false){
+  const btn=$('refreshQuotes'),st=$('autoStatus');if(btn)btn.disabled=true;if(st)st.textContent='更新中…';
+  const held=[...new Set(compute().positions.filter(p=>p.qty>0).map(p=>p.ticker))];
+  const watch=[...new Set([...held,...Object.keys(db.quotes||{})])];
+  let fx=null,ok=0,fail=0;
+  try{const f=await fetchYahooPrice('TWD=X');fx=f.price;if(!Number.isFinite(fx)||fx<=0)fx=null}catch(e){console.warn('FX update failed',e)}
+  const results=await Promise.allSettled(watch.map(async t=>[t,await fetchYahooPrice(yahooSymbol(t))]));
+  for(const z of results){
+    if(z.status==='fulfilled'){
+      const [t,q]=z.value;const old=db.quotes[t]||{};db.quotes[t]={...old,price:q.price,fx:fx||old.fx||1,updated:new Date().toISOString(),source:'Yahoo Finance',marketState:q.marketState,exchange:q.exchange};ok++;
+    }else fail++;
+  }
+  if(fx){db.meta=db.meta||{};db.meta.currentUsdTwd=fx;db.meta.fxUpdated=new Date().toISOString();db.meta.fxSource='Yahoo Finance TWD=X';
+    if($('currency')?.value==='USD')$('fx').value=fx.toFixed(4);
+    if($('qFx'))$('qFx').value=fx.toFixed(4);
+  }
+  localStorage.setItem(KEY,JSON.stringify(db));renderAll();
+  const ts=new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+  if(st)st.textContent=`${ts}｜成功 ${ok}｜失敗 ${fail}${fx?'｜USD/TWD '+F(fx,4):'｜匯率沿用舊值'}`;
+  if(btn)btn.disabled=false;
+  if(showAlert)alert(`行情更新完成：成功 ${ok} 檔、失敗 ${fail} 檔${fx?`；USD/TWD ${F(fx,4)}`:'；匯率更新失敗，沿用上次資料'}`);
+}
+$('refreshQuotes').onclick=()=>refreshAllQuotes(true);
+$('currency').addEventListener('change',()=>{if($('currency').value==='USD'&&db.meta?.currentUsdTwd)$('fx').value=Number(db.meta.currentUsdTwd).toFixed(4);else if($('currency').value==='TWD')$('fx').value=1});
+$('quoteForm').onsubmit=e=>{e.preventDefault();const t=$('qTicker').value.trim().toUpperCase();db.quotes[t]={price:N($('qPrice').value),fx:N($('qFx').value)||1,updated:new Date().toISOString(),source:'手動覆寫'};save();e.target.reset();$('qFx').value=db.meta?.currentUsdTwd?Number(db.meta.currentUsdTwd).toFixed(4):1};
+function renderQuotes(){const rows=Object.entries(db.quotes);$('quoteTable').innerHTML=`<thead><tr><th>代號</th><th>現價</th><th>目前匯率</th><th>來源</th><th>更新時間</th><th></th></tr></thead><tbody>`+(rows.length?rows.map(([t,q])=>`<tr><td>${E(t)}</td><td>${F(q.price,4)}</td><td>${F(q.fx,4)}</td><td>${E(q.source||'既有資料')}</td><td>${new Date(q.updated).toLocaleString('zh-TW')}</td><td><button class="tiny danger" onclick="delQ('${t}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="6" class="empty">尚無現價</td></tr>`)+`</tbody>`}
+window.delQ=t=>{delete db.quotes[t];save()};
+function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};$('exportJson').onclick=()=>dl(`stock-ledger-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(db,null,2),'application/json');$('exportCsv').onclick=()=>{const cols=['date','account','ticker','asset','side','qty','price','fee','fx','stop','currency','exitReason','brokerPnlBase','brokerPnlTwd','tradeReturnPct','note'];const lines=[cols.join(',')].concat(db.transactions.map(t=>cols.map(k=>`"${String(t[k]??'').replaceAll('"','""')}"`).join(',')));dl(`transactions-${new Date().toISOString().slice(0,10)}.csv`,'\ufeff'+lines.join('\n'),'text/csv;charset=utf-8')};$('importJson').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.transactions)||!d.quotes)throw 0;db=d;save();alert('匯入完成')}catch{alert('格式錯誤')}};$('saveCash').onclick=()=>{db.cash['長期']=N($('cashLong').value);db.cash['波段']=N($('cashSwing').value);db.cash.loan=N($('cashLoan').value);db.cash.reserve=N($('cashReserve').value);save()};function renderCash(){$('cashLong').value=N(db.cash['長期']);$('cashSwing').value=N(db.cash['波段']);$('cashLoan').value=N(db.cash.loan);$('cashReserve').value=N(db.cash.reserve)}function renderAll(){const c=compute();renderDash(c);renderTx();renderPos(c);renderPerf(c);renderManualTrades();renderQuotes();renderCash();if($('fxDash'))$('fxDash').innerHTML=db.meta?.currentUsdTwd?`目前 USD/TWD：<b>${F(db.meta.currentUsdTwd,4)}</b>｜最後更新：${db.meta.fxUpdated?new Date(db.meta.fxUpdated).toLocaleString('zh-TW'):'—'}｜歷史成交匯率保持不變。`:'目前匯率尚未成功自動更新；歷史成交匯率保持不變。'}
+renderAll();
+if(db.meta?.currentUsdTwd&&$('currency').value==='USD')$('fx').value=Number(db.meta.currentUsdTwd).toFixed(4);
+setTimeout(()=>refreshAllQuotes(false),600);
+setInterval(()=>refreshAllQuotes(false),15*60*1000);
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script></body></html>
