@@ -1,4 +1,4 @@
-const CACHE='stock-ledger-v6-1-20260825';
+const CACHE='stock-ledger-v6-2-20260825';
 const ASSETS=['./','./index.html','./manifest.webmanifest'];
 
 self.addEventListener('install', event => {

@@ -19,7 +19,7 @@ body{overscroll-behavior-x:none}
 }
 
 </style></head>
-<body><div class="wrap"><h1>📒 我的股票記帳</h1><div class="sub">v6.1｜手機可左右滑動切換分頁｜公開程式碼不含私人交易資料｜JSON 合併匯入＋Binance CSV 自動去重。</div>
+<body><div class="wrap"><h1>📒 我的股票記帳</h1><div class="sub">v6.2｜Binance 官方 CSV 欄位相容｜JSON 合併匯入＋自動去重。</div>
 <div class="tabs"><button class="tab active" data-tab="dash">總覽</button><button class="tab" data-tab="tx">交易</button><button class="tab" data-tab="pos">持倉</button><button class="tab" data-tab="perf">績效</button><button class="tab" data-tab="quotes">現價</button><button class="tab" data-tab="backup">備份</button></div>
 <section id="dash" class="panel active"><div class="grid g4" id="kpis"></div><div class="card muted" style="margin-top:12px" id="fxDash">目前匯率會在開啟 App 後自動更新；歷史成交匯率不會被改寫。</div><div class="section-title"><h2>帳戶摘要</h2></div><div class="grid g2" id="accountSummary"></div></section>
 <section id="tx" class="panel"><div class="section-title"><h2>新增交易</h2><span class="pill">平均成本法</span></div><div class="card"><form id="txForm" class="form">
@@ -52,7 +52,7 @@ Binance CSV 只會新增尚未存在的完整平倉交易；重複交易會自�
 匯入前仍建議先匯出一份 JSON 作為保險。
 </div>
 </div><div class="section-title"><h2>資金池</h2></div><div class="card form"><div><label>長期待命 TWD</label><input id="cashLong" type="number"></div><div><label>波段待命 TWD</label><input id="cashSwing" type="number"></div><div><label>貸款扣款帳戶 TWD</label><input id="cashLoan" type="number"></div><div><label>定存 / 緊急預備金 TWD</label><input id="cashReserve" type="number"></div><div class="span4"><button id="saveCash" class="primary">儲存資金池</button></div></div></section>
-<div class="footer">Stock Ledger v6.1｜安全合併匯入＋Binance 去重｜本工具只做記帳與績效追蹤，不會自動下單。</div></div>
+<div class="footer">Stock Ledger v6.2｜Binance CSV 相容修正版｜本工具只做記帳與績效追蹤，不會自動下單。</div></div>
 <script>
 const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.1","publicSafe":true}};let db=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(DEFAULT_DB));if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
 const $=id=>document.getElementById(id),N=x=>Number(x||0),F=(x,d=2)=>Number.isFinite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d}):'—',M=x=>Number.isFinite(x)?Math.round(x).toLocaleString('zh-TW'):'—',C=x=>x>0?'pos':x<0?'neg':'',D=s=>new Date(s),E=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -275,14 +275,14 @@ function normalizeDateTime(v){
 }
 function binanceRowToTrade(row){
   // Supports common Binance exported "position history" column name variants in Chinese/English.
-  const ticker=normText(pickField(row,['symbol','交易對','合約','幣種','symbol/contract'])).toUpperCase();
+  const ticker=normText(pickField(row,['symbol','符號','交易對','合約','幣種','symbol/contract'])).toUpperCase();
   const sideRaw=normText(pickField(row,['direction','方向','side','倉位方向','position side'])).toUpperCase();
-  const open=normalizeDateTime(pickField(row,['open time','開倉時間','開倉日期','entry time']));
-  const close=normalizeDateTime(pickField(row,['close time','平倉時間','平倉日期','exit time']));
-  const entry=parseNum(pickField(row,['average entry price','avg entry price','平均開倉價','開倉均價','entry price']));
-  const exit=parseNum(pickField(row,['average close price','avg close price','平倉均價','平均平倉價','close price']));
-  const qty=parseNum(pickField(row,['closed volume','quantity','qty','數量','成交數量','平倉數量']));
-  const pnl=parseNum(pickField(row,['realized pnl','realized profit','已實現盈虧','平倉盈虧','realized profit and loss']));
+  const open=normalizeDateTime(pickField(row,['open time','已開啟','開倉時間','開倉日期','entry time']));
+  const close=normalizeDateTime(pickField(row,['close time','已關閉','平倉時間','平倉日期','exit time']));
+  const entry=parseNum(pickField(row,['average entry price','avg entry price','進場價格','平均開倉價','開倉均價','entry price']));
+  const exit=parseNum(pickField(row,['average close price','avg close price','平均收盤價','平倉均價','平均平倉價','close price']));
+  const qty=parseNum(pickField(row,['closed volume','已平倉交易量','quantity','qty','數量','成交數量','平倉數量']));
+  const pnl=parseNum(pickField(row,['realized pnl','realized profit','平倉盈虧','已實現盈虧','realized profit and loss']));
   let ret=parseNum(pickField(row,['roi','收益率','return','報酬率']));
   if(Number.isFinite(ret) && Math.abs(ret)>0 && Math.abs(ret)<1 && String(pickField(row,['roi','收益率','return','報酬率'])).includes('%')===false){
     // Binance exports may encode decimal ratio. Preserve obvious percentage-looking values otherwise.
@@ -306,7 +306,7 @@ function binanceRowToTrade(row){
     priceReturnPct:priceReturn,
     rMultiple:null,
     exitReason:(Number.isFinite(pnl)&&pnl<0)?'平倉虧損':'平倉',
-    note:'由 Binance CSV 自動匯入；原始停損若CSV未提供，R multiple維持N/A。'
+    note:`由 Binance CSV 自動匯入${normText(pickField(row,['保證金模式','margin mode']))?'；'+normText(pickField(row,['保證金模式','margin mode'])):''}；原始停損若CSV未提供，R multiple維持N/A。`
   };
 }
 function importBinanceRows(rows){
