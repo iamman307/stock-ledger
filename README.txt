@@ -1,36 +1,30 @@
-﻿股票記帳 App v6｜GitHub Pages 公開安全版
-========================================
+﻿股票記帳 App v6.1｜強制更新＋公開安全版
+==========================================
 
-v6 重點：
-1. JSON 匯入由「整份覆蓋」改成「合併＋去重」。
-2. 匯入 JSON 前自動保存一份「匯入前快照」。
-3. 新增「還原匯入前快照」按鈕。
-4. 新增 Binance CSV 專用匯入。
-5. Binance CSV 匯入會依：
-   交易對 + 方向 + 開倉時間 + 平倉時間 + 進場價 + 出場價 + 數量
-   自動判定重複。
-6. 匯入後顯示：
-   - 新增幾筆
-   - 重複略過幾筆
-   - 無法解析幾筆
-7. GitHub 公開程式碼仍不含私人投資資料。
+這版修正兩個重要問題：
+1. Service Worker 快取已正式升版，並加入 skipWaiting / clients.claim / updateViaCache:none，
+   可大幅減少手機 PWA 卡在舊版的情況。
+2. GitHub 公開版 index.html 不再內嵌任何私人交易、持倉或資金資料。
+   仍維持相同 localStorage key，因此原手機上已存在的資料不會因更新程式碼而消失。
 
-JSON 合併原則：
-- 股票交易：只新增不存在的交易。
-- manualTrades（原油/BTC等完整交易）：只新增不存在的交易。
-- 行情 quotes：保留更新時間較新的資料。
-- 資金池 cash：不會用匯入檔直接覆蓋手機上已存在的非零金額。
-- 匯入失敗時，不清除原資料。
+功能：
+- JSON：合併＋去重，不再整份覆蓋。
+- 匯入前：自動建立最近一次匯入前快照。
+- 可按「還原匯入前快照」。
+- Binance CSV：直接匯入、完整交易自動去重。
+- 匯入結果會顯示新增 / 重複略過 / 解析失敗筆數。
+- 公開 GitHub 程式碼不含私人資料。
 
-Binance CSV：
-- 支援常見 Binance 合約倉位歷史欄位的中英文名稱。
-- 如果 CSV 缺少原始停損，R multiple 保持 N/A。
-- 若 Binance 未在檔內提供手續費/Funding，App 不會自行猜測。
-
-部署 GitHub Pages 時只需上傳：
+更新 GitHub Pages：
+請覆蓋上傳：
 - index.html
 - manifest.webmanifest
 - sw.js
 - README.txt
 
-私人 JSON / Binance CSV 不要上傳 Public Repository。
+重要：
+如果先前已把含私人交易資料的 index.html 上傳到「公開」GitHub repository，
+單純覆蓋新檔不會清除 Git commit 歷史。最安全做法是：
+A. 先把舊 repository 改 Private，或
+B. 建立新的乾淨 public repository 部署 v6.1，確認新站正常後刪除舊 repository。
+私人 JSON / Binance CSV 請勿上傳 public repository。
