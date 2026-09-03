@@ -1,5 +1,5 @@
-const CACHE='stock-ledger-v6-4-quote-bridge-20260904';
-const ASSETS=['./','./index.html','./manifest.webmanifest'];
+const CACHE='stock-ledger-v6-4-quote-bridge-20260904b';
+const ASSETS=['./','./index.html','./manifest.webmanifest','./v64-patch.js'];
 const SNAPSHOT='https://raw.githubusercontent.com/iamman307/stock-ledger/quotes-data/quotes.json';
 
 self.addEventListener('install', event => {
@@ -77,6 +77,25 @@ async function yahooBridgeResponse(reqUrl){
   }
 }
 
+async function navigationResponse(req){
+  try{
+    const resp=await fetch(req);
+    const type=resp.headers.get('content-type')||'';
+    if(!type.includes('text/html'))return resp;
+    let html=await resp.text();
+    if(!html.includes('v64-patch.js')){
+      html=html.replace('</body>','<script src="./v64-patch.js"></script></body>');
+    }
+    return new Response(html,{status:resp.status,statusText:resp.statusText,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
+  }catch(e){
+    const cached=await caches.match('./index.html');
+    if(!cached)throw e;
+    let html=await cached.text();
+    if(!html.includes('v64-patch.js'))html=html.replace('</body>','<script src="./v64-patch.js"></script></body>');
+    return new Response(html,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
+  }
+}
+
 self.addEventListener('fetch', event => {
   const req=event.request;
   const u=new URL(req.url);
@@ -89,15 +108,7 @@ self.addEventListener('fetch', event => {
   if(u.origin!==self.location.origin)return;
 
   if(req.mode==='navigate'){
-    event.respondWith(
-      fetch(req)
-        .then(resp=>{
-          const copy=resp.clone();
-          caches.open(CACHE).then(cache=>cache.put('./index.html',copy));
-          return resp;
-        })
-        .catch(()=>caches.match('./index.html'))
-    );
+    event.respondWith(navigationResponse(req));
     return;
   }
 
