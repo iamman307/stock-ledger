@@ -1,0 +1,45 @@
+name: Update quote snapshot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/update-quotes.yml'
+      - 'scripts/update_quotes.py'
+      - 'symbols.txt'
+  schedule:
+    - cron: '*/30 * * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: quote-snapshot
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Fetch quote snapshot
+        run: python3 scripts/update_quotes.py
+
+      - name: Publish orphan quote-data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir /tmp/quote-branch
+          cd /tmp/quote-branch
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp /tmp/quotes.json quotes.json
+          git add quotes.json
+          git commit -m "Update quote snapshot"
+          git branch -M quotes-data
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin quotes-data
