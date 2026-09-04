@@ -1,124 +1,39 @@
-const CACHE='stock-ledger-v6-4-quote-bridge-20260904b';
-const ASSETS=['./','./index.html','./manifest.webmanifest','./v64-patch.js'];
-const SNAPSHOT='https://raw.githubusercontent.com/iamman307/stock-ledger/quotes-data/quotes.json';
+const CACHE='stock-ledger-v6-4-github-quotes-20260904';
+const ASSETS=['./','./index.html','./manifest.webmanifest'];
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE)
-      .then(cache => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+      .then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
+      .then(()=>self.clients.claim())
   );
 });
-
-async function yahooBridgeResponse(reqUrl){
-  try{
-    const u=new URL(reqUrl);
-    const prefix='/v8/finance/chart/';
-    const idx=u.pathname.indexOf(prefix);
-    if(idx<0)return null;
-    const symbol=decodeURIComponent(u.pathname.slice(idx+prefix.length)).toUpperCase();
-
-    const r=await fetch(SNAPSHOT+'?t='+Date.now(),{cache:'no-store'});
-    if(!r.ok)throw new Error('snapshot '+r.status);
-    const snap=await r.json();
-
-    let q=null;
-    if(symbol==='TWD=X' || symbol==='USDTWD=X'){
-      const rate=Number(snap.usdTwd);
-      if(Number.isFinite(rate)&&rate>0){
-        q={price:rate,currency:'TWD',exchange:'FX',marketState:'',previousClose:rate};
-      }
-    }else{
-      q=snap?.quotes?.[symbol]||null;
-    }
-
-    if(!q || !Number.isFinite(Number(q.price))){
-      return new Response(JSON.stringify({chart:{result:null,error:{code:'Not Found',description:'Symbol not in quote snapshot'}}}),{
-        status:404,
-        headers:{'Content-Type':'application/json','Cache-Control':'no-store'}
-      });
-    }
-
-    const price=Number(q.price);
-    const payload={
-      chart:{
-        result:[{
-          meta:{
-            regularMarketPrice:price,
-            previousClose:Number(q.previousClose)||price,
-            chartPreviousClose:Number(q.previousClose)||price,
-            exchangeName:q.exchange||'',
-            currency:q.currency||'USD',
-            marketState:q.marketState||''
-          },
-          timestamp:[],
-          indicators:{quote:[{}]}
-        }],
-        error:null
-      }
-    };
-    return new Response(JSON.stringify(payload),{
-      status:200,
-      headers:{'Content-Type':'application/json','Cache-Control':'no-store'}
-    });
-  }catch(e){
-    return new Response(JSON.stringify({chart:{result:null,error:{code:'SnapshotError',description:String(e?.message||e)}}}),{
-      status:503,
-      headers:{'Content-Type':'application/json','Cache-Control':'no-store'}
-    });
-  }
-}
-
-async function navigationResponse(req){
-  try{
-    const resp=await fetch(req);
-    const type=resp.headers.get('content-type')||'';
-    if(!type.includes('text/html'))return resp;
-    let html=await resp.text();
-    if(!html.includes('v64-patch.js')){
-      html=html.replace('</body>','<script src="./v64-patch.js"></script></body>');
-    }
-    return new Response(html,{status:resp.status,statusText:resp.statusText,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
-  }catch(e){
-    const cached=await caches.match('./index.html');
-    if(!cached)throw e;
-    let html=await cached.text();
-    if(!html.includes('v64-patch.js'))html=html.replace('</body>','<script src="./v64-patch.js"></script></body>');
-    return new Response(html,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
-  }
-}
 
 self.addEventListener('fetch', event => {
   const req=event.request;
   const u=new URL(req.url);
-
-  if(u.hostname==='query1.finance.yahoo.com' && u.pathname.includes('/v8/finance/chart/')){
-    event.respondWith(yahooBridgeResponse(req.url));
-    return;
-  }
-
-  if(u.origin!==self.location.origin)return;
+  if(u.origin!==self.location.origin) return; // quote snapshot goes straight to network
 
   if(req.mode==='navigate'){
-    event.respondWith(navigationResponse(req));
+    event.respondWith(
+      fetch(req).then(resp=>{
+        const copy=resp.clone();
+        caches.open(CACHE).then(c=>c.put('./index.html',copy));
+        return resp;
+      }).catch(()=>caches.match('./index.html'))
+    );
     return;
   }
 
   event.respondWith(
-    fetch(req)
-      .then(resp=>{
-        const copy=resp.clone();
-        caches.open(CACHE).then(cache=>cache.put(req,copy));
-        return resp;
-      })
-      .catch(()=>caches.match(req))
+    fetch(req).then(resp=>{
+      const copy=resp.clone();
+      caches.open(CACHE).then(c=>c.put(req,copy));
+      return resp;
+    }).catch(()=>caches.match(req))
   );
 });

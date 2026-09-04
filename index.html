@@ -19,7 +19,7 @@ body{overscroll-behavior-x:none}
 }
 
 </style></head>
-<body><div class="wrap"><h1>📒 我的股票記帳</h1><div class="sub">v6.2｜Binance 官方 CSV 欄位相容｜JSON 合併匯入＋自動去重。</div>
+<body><div class="wrap"><h1>📒 我的股票記帳</h1><div class="sub">v6.4｜免 Token 線上行情｜GitHub 每 30 分鐘更新快照｜JSON 可合併修正＋去重。</div>
 <div class="tabs"><button class="tab active" data-tab="dash">總覽</button><button class="tab" data-tab="tx">交易</button><button class="tab" data-tab="pos">持倉</button><button class="tab" data-tab="perf">績效</button><button class="tab" data-tab="quotes">現價</button><button class="tab" data-tab="backup">備份</button></div>
 <section id="dash" class="panel active"><div class="grid g4" id="kpis"></div><div class="card muted" style="margin-top:12px" id="fxDash">目前匯率會在開啟 App 後自動更新；歷史成交匯率不會被改寫。</div><div class="section-title"><h2>帳戶摘要</h2></div><div class="grid g2" id="accountSummary"></div></section>
 <section id="tx" class="panel"><div class="section-title"><h2>新增交易</h2><span class="pill">平均成本法</span></div><div class="card"><form id="txForm" class="form">
@@ -38,7 +38,7 @@ body{overscroll-behavior-x:none}
 </section>
 <section id="quotes" class="panel">
 <div class="section-title"><h2>即時行情</h2><span class="pill" id="autoStatus">尚未更新</span></div>
-<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button id="refreshQuotes" class="primary">立即更新全部</button><span class="muted">開啟 App 時會自動更新，App 開著時每 15 分鐘更新一次。來源：Yahoo Finance 公開行情端點；若服務暫時失敗，會保留最後成功資料。</span></div></div>
+<div class="card" style="margin-bottom:12px"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button id="refreshQuotes" class="primary">讀取最新行情</button><span class="muted">免 API Token。GitHub Actions 約每 30 分鐘在伺服器端更新 Yahoo Finance 行情快照；這裡只讀取最新快照，因此不會再被瀏覽器 CORS 擋住。若快照暫時失敗，保留最後成功資料。</span></div></div>
 <div class="section-title"><h2>手動覆寫現價</h2><span class="pill">自動資料異常時可用</span></div><div class="card"><form id="quoteForm" class="form"><div><label>代號</label><input id="qTicker" required></div><div><label>現價</label><input id="qPrice" type="number" step="0.000001" required></div><div><label>目前匯率</label><input id="qFx" type="number" step="0.000001" value="1"></div><div style="align-self:end"><button class="primary">更新</button></div></form></div><div class="section-title"><h2>行情表</h2></div><div class="card scroll"><table id="quoteTable"></table></div></section>
 <section id="backup" class="panel"><div class="section-title"><h2>備份與還原</h2></div><div class="card"><p class="muted">資料存在瀏覽器 localStorage。換手機或清除資料前，請匯出 JSON。</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="exportJson" class="primary">匯出完整 JSON 備份</button>
 <button id="exportCsv">匯出交易 CSV</button>
@@ -52,9 +52,9 @@ Binance CSV 只會新增尚未存在的完整平倉交易；重複交易會自�
 匯入前仍建議先匯出一份 JSON 作為保險。
 </div>
 </div><div class="section-title"><h2>資金池</h2></div><div class="card form"><div><label>長期待命 TWD</label><input id="cashLong" type="number"></div><div><label>波段待命 TWD</label><input id="cashSwing" type="number"></div><div><label>貸款扣款帳戶 TWD</label><input id="cashLoan" type="number"></div><div><label>定存 / 緊急預備金 TWD</label><input id="cashReserve" type="number"></div><div class="span4"><button id="saveCash" class="primary">儲存資金池</button></div></div></section>
-<div class="footer">Stock Ledger v6.2｜Binance CSV 相容修正版｜本工具只做記帳與績效追蹤，不會自動下單。</div></div>
+<div class="footer">Stock Ledger v6.4｜GitHub 行情快照＋安全資料修正｜本工具只做記帳與績效追蹤，不會自動下單。</div></div>
 <script>
-const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.1","publicSafe":true}};let db=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(DEFAULT_DB));if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
+const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.4","publicSafe":true}};let db=JSON.parse(localStorage.getItem(KEY)||JSON.stringify(DEFAULT_DB));if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
 const $=id=>document.getElementById(id),N=x=>Number(x||0),F=(x,d=2)=>Number.isFinite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d}):'—',M=x=>Number.isFinite(x)?Math.round(x).toLocaleString('zh-TW'):'—',C=x=>x>0?'pos':x<0?'neg':'',D=s=>new Date(s),E=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
 
@@ -118,39 +118,89 @@ function renderManualTrades(){
     return `<tr><td>${E(x.ticker)}</td><td>${E(x.direction)}</td><td>${E(x.open.replace('T',' '))}</td><td>${E(x.close.replace('T',' '))}</td><td>${F(x.entry,4)}</td><td>${F(x.exit,4)}</td><td>${F(x.qty,4)}</td><td class="${C(x.pnl)}">${F(x.pnl,2)} ${E(x.currency)}</td><td class="${C(x.returnPct)}">${F(x.returnPct,2)}%</td><td class="${C(x.priceReturnPct)}">${F(x.priceReturnPct,4)}%</td><td>${hold}</td></tr>`
   }).join(''):`<tr><td colspan="11" class="empty">尚無其他歷史交易</td></tr>`)+`</tbody>`;
 }
-const YAHOO_BASE='https://query1.finance.yahoo.com/v8/finance/chart/';
-function yahooSymbol(t){const map=(db.meta&&db.meta.symbolMap)||{};return map[t]||t}
-async function fetchYahooPrice(symbol){
-  const u=YAHOO_BASE+encodeURIComponent(symbol)+'?range=1d&interval=1m&includePrePost=true';
-  const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
-  const j=await r.json(),m=j?.chart?.result?.[0]?.meta;if(!m)throw new Error('No quote');
-  const p=Number(m.regularMarketPrice ?? m.previousClose);if(!Number.isFinite(p))throw new Error('No price');
-  return {price:p,exchange:m.exchangeName||'',currency:m.currency||'',marketState:m.marketState||''};
+
+const QUOTE_SNAPSHOT_URL='https://raw.githubusercontent.com/iamman307/stock-ledger/quotes-data/quotes.json';
+
+async function fetchQuoteSnapshot(){
+  const url=QUOTE_SNAPSHOT_URL+'?t='+Date.now();
+  const r=await fetch(url,{cache:'no-store'});
+  if(!r.ok)throw new Error('行情快照 HTTP '+r.status);
+  const j=await r.json();
+  if(!j || typeof j!=='object' || !j.quotes)throw new Error('行情快照格式錯誤');
+  return j;
 }
 async function refreshAllQuotes(showAlert=false){
-  const btn=$('refreshQuotes'),st=$('autoStatus');if(btn)btn.disabled=true;if(st)st.textContent='更新中…';
+  const btn=$('refreshQuotes'),st=$('autoStatus');
+  if(btn)btn.disabled=true;
+  if(st)st.textContent='讀取行情快照…';
+
   const held=[...new Set(compute().positions.filter(p=>p.qty>0).map(p=>p.ticker))];
-  const watch=[...new Set([...held,...Object.keys(db.quotes||{})])];
-  let fx=null,ok=0,fail=0;
-  try{const f=await fetchYahooPrice('TWD=X');fx=f.price;if(!Number.isFinite(fx)||fx<=0)fx=null}catch(e){console.warn('FX update failed',e)}
-  const results=await Promise.allSettled(watch.map(async t=>[t,await fetchYahooPrice(yahooSymbol(t))]));
-  for(const z of results){
-    if(z.status==='fulfilled'){
-      const [t,q]=z.value;const old=db.quotes[t]||{};db.quotes[t]={...old,price:q.price,fx:fx||old.fx||1,updated:new Date().toISOString(),source:'Yahoo Finance',marketState:q.marketState,exchange:q.exchange};ok++;
-    }else fail++;
+  let ok=0,fail=0,missing=[],snapshot=null;
+
+  try{
+    snapshot=await fetchQuoteSnapshot();
+    const fx=Number(snapshot.usdTwd);
+    if(Number.isFinite(fx)&&fx>0){
+      db.meta=db.meta||{};
+      db.meta.currentUsdTwd=fx;
+      db.meta.fxUpdated=snapshot.fxUpdated||snapshot.updated||new Date().toISOString();
+      db.meta.fxSource=snapshot.fxSource||'Frankfurter';
+      if($('currency')?.value==='USD')$('fx').value=fx.toFixed(4);
+      if($('qFx'))$('qFx').value=fx.toFixed(4);
+    }
+
+    for(const t of held){
+      const q=snapshot.quotes[String(t).toUpperCase()];
+      if(q && Number.isFinite(Number(q.price)) && Number(q.price)>0){
+        const old=db.quotes[t]||{};
+        db.quotes[t]={
+          ...old,
+          price:Number(q.price),
+          fx:(Number.isFinite(fx)&&fx>0)?fx:(old.fx||db.meta?.currentUsdTwd||1),
+          updated:q.updated||snapshot.updated||new Date().toISOString(),
+          source:snapshot.source||'Yahoo Finance via GitHub Actions',
+          marketState:q.marketState||'',
+          exchange:q.exchange||''
+        };
+        ok++;
+      }else{
+        fail++;
+        missing.push(t);
+      }
+    }
+
+    db.meta=db.meta||{};
+    db.meta.lastQuoteSnapshot=snapshot.updated||new Date().toISOString();
+    localStorage.setItem(KEY,JSON.stringify(db));
+    renderAll();
+
+    const ageMs=Date.now()-Date.parse(snapshot.updated||'');
+    const ageMin=Number.isFinite(ageMs)?Math.max(0,Math.round(ageMs/60000)):null;
+    const ageTxt=ageMin==null?'':'｜快照約 '+ageMin+' 分鐘前';
+    const fxTxt=Number.isFinite(Number(snapshot.usdTwd))?'｜USD/TWD '+F(Number(snapshot.usdTwd),4):'';
+    if(st)st.textContent=`成功 ${ok}｜失敗 ${fail}${ageTxt}${fxTxt}`;
+
+    if(showAlert){
+      let msg=`行情讀取完成\n成功：${ok} 檔\n失敗：${fail} 檔`;
+      if(ageMin!=null)msg+=`\n行情快照：約 ${ageMin} 分鐘前`;
+      if(missing.length)msg+=`\n快照尚無：${missing.join(', ')}`;
+      if(Number.isFinite(Number(snapshot.usdTwd)))msg+=`\nUSD/TWD：${F(Number(snapshot.usdTwd),4)}`;
+      alert(msg);
+    }
+  }catch(e){
+    console.warn(e);
+    if(st)st.textContent='行情快照讀取失敗｜沿用最後資料';
+    if(showAlert)alert('行情讀取失敗：'+String(e?.message||e)+'\n原有行情資料沒有被清除。');
+  }finally{
+    if(btn)btn.disabled=false;
   }
-  if(fx){db.meta=db.meta||{};db.meta.currentUsdTwd=fx;db.meta.fxUpdated=new Date().toISOString();db.meta.fxSource='Yahoo Finance TWD=X';
-    if($('currency')?.value==='USD')$('fx').value=fx.toFixed(4);
-    if($('qFx'))$('qFx').value=fx.toFixed(4);
-  }
-  localStorage.setItem(KEY,JSON.stringify(db));renderAll();
-  const ts=new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
-  if(st)st.textContent=`${ts}｜成功 ${ok}｜失敗 ${fail}${fx?'｜USD/TWD '+F(fx,4):'｜匯率沿用舊值'}`;
-  if(btn)btn.disabled=false;
-  if(showAlert)alert(`行情更新完成：成功 ${ok} 檔、失敗 ${fail} 檔${fx?`；USD/TWD ${F(fx,4)}`:'；匯率更新失敗，沿用上次資料'}`);
 }
 $('refreshQuotes').onclick=()=>refreshAllQuotes(true);
-$('currency').addEventListener('change',()=>{if($('currency').value==='USD'&&db.meta?.currentUsdTwd)$('fx').value=Number(db.meta.currentUsdTwd).toFixed(4);else if($('currency').value==='TWD')$('fx').value=1});
+$('currency').addEventListener('change',()=>{
+  if($('currency').value==='USD'&&db.meta?.currentUsdTwd)$('fx').value=Number(db.meta.currentUsdTwd).toFixed(4);
+  else if($('currency').value==='TWD')$('fx').value=1;
+});
+
 $('quoteForm').onsubmit=e=>{e.preventDefault();const t=$('qTicker').value.trim().toUpperCase();db.quotes[t]={price:N($('qPrice').value),fx:N($('qFx').value)||1,updated:new Date().toISOString(),source:'手動覆寫'};save();e.target.reset();$('qFx').value=db.meta?.currentUsdTwd?Number(db.meta.currentUsdTwd).toFixed(4):1};
 function renderQuotes(){const rows=Object.entries(db.quotes);$('quoteTable').innerHTML=`<thead><tr><th>代號</th><th>現價</th><th>目前匯率</th><th>來源</th><th>更新時間</th><th></th></tr></thead><tbody>`+(rows.length?rows.map(([t,q])=>`<tr><td>${E(t)}</td><td>${F(q.price,4)}</td><td>${F(q.fx,4)}</td><td>${E(q.source||'既有資料')}</td><td>${new Date(q.updated).toLocaleString('zh-TW')}</td><td><button class="tiny danger" onclick="delQ('${t}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="6" class="empty">尚無現價</td></tr>`)+`</tbody>`}
 window.delQ=t=>{delete db.quotes[t];save()};
@@ -172,6 +222,7 @@ function manualTradeKey(t){
     Number(t.qty||0).toFixed(8)
   ].join('|');
 }
+
 function mergeImportedDb(incoming){
   if(!incoming || !Array.isArray(incoming.transactions)) throw new Error('invalid_json');
   db.transactions = Array.isArray(db.transactions) ? db.transactions : [];
@@ -180,13 +231,26 @@ function mergeImportedDb(incoming){
   db.cash = db.cash || {"長期":0,"波段":0,"loan":0,"reserve":0};
   db.meta = db.meta || {};
 
-  const existingTx = new Set(db.transactions.map(txKey));
-  let txAdded=0, txSkipped=0;
+  const idIndex=new Map();
+  db.transactions.forEach((t,i)=>{if(t?.id)idIndex.set(String(t.id),i)});
+  let txAdded=0,txSkipped=0,txUpdated=0;
+
   for(const t of incoming.transactions){
+    if(t?.id && idIndex.has(String(t.id))){
+      const idx=idIndex.get(String(t.id));
+      const before=JSON.stringify(db.transactions[idx]);
+      const merged={...db.transactions[idx],...t};
+      if(JSON.stringify(merged)!==before){
+        db.transactions[idx]=merged;
+        txUpdated++;
+      }else txSkipped++;
+      continue;
+    }
+    const existingTx = new Set(db.transactions.map(txKey));
     const k=txKey(t);
     if(existingTx.has(k)){txSkipped++;continue}
     db.transactions.push(t);
-    existingTx.add(k);
+    if(t?.id)idIndex.set(String(t.id),db.transactions.length-1);
     txAdded++;
   }
 
@@ -200,7 +264,7 @@ function mergeImportedDb(incoming){
     manualAdded++;
   }
 
-  // Quotes: keep the newer update for each ticker when possible.
+  // Quotes: keep newer update if available.
   for(const [ticker,q] of Object.entries(incoming.quotes||{})){
     const cur=db.quotes[ticker];
     if(!cur || !cur.updated || !q.updated || new Date(q.updated)>=new Date(cur.updated)){
@@ -208,8 +272,7 @@ function mergeImportedDb(incoming){
     }
   }
 
-  // Cash pools are user-state, so do NOT overwrite existing non-zero values automatically.
-  // Only fill fields that are missing/zero locally.
+  // Do not overwrite existing non-zero cash pools with an older backup.
   if(incoming.cash){
     for(const key of ['長期','波段','loan','reserve']){
       if((db.cash[key]===undefined || Number(db.cash[key])===0) && incoming.cash[key]!==undefined){
@@ -219,7 +282,7 @@ function mergeImportedDb(incoming){
   }
 
   db.meta.lastMergedImport = new Date().toISOString();
-  return {txAdded,txSkipped,manualAdded,manualSkipped};
+  return {txAdded,txSkipped,txUpdated,manualAdded,manualSkipped};
 }
 
 function parseCsvLine(line){
@@ -371,8 +434,9 @@ $('restorePreImport').onclick=()=>{
 $('saveCash').onclick=()=>{db.cash['長期']=N($('cashLong').value);db.cash['波段']=N($('cashSwing').value);db.cash.loan=N($('cashLoan').value);db.cash.reserve=N($('cashReserve').value);save()};function renderCash(){$('cashLong').value=N(db.cash['長期']);$('cashSwing').value=N(db.cash['波段']);$('cashLoan').value=N(db.cash.loan);$('cashReserve').value=N(db.cash.reserve)}function renderAll(){const c=compute();renderDash(c);renderTx();renderPos(c);renderPerf(c);renderManualTrades();renderQuotes();renderCash();if($('fxDash'))$('fxDash').innerHTML=db.meta?.currentUsdTwd?`目前 USD/TWD：<b>${F(db.meta.currentUsdTwd,4)}</b>｜最後更新：${db.meta.fxUpdated?new Date(db.meta.fxUpdated).toLocaleString('zh-TW'):'—'}｜歷史成交匯率保持不變。`:'目前匯率尚未成功自動更新；歷史成交匯率保持不變。'}
 renderAll();
 if(db.meta?.currentUsdTwd&&$('currency').value==='USD')$('fx').value=Number(db.meta.currentUsdTwd).toFixed(4);
-setTimeout(()=>refreshAllQuotes(false),600);
-setInterval(()=>refreshAllQuotes(false),15*60*1000);
+setTimeout(()=>refreshAllQuotes(false),900);
+setInterval(()=>{if(document.visibilityState==='visible')refreshAllQuotes(false)},15*60*1000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshAllQuotes(false)});
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'})
     .then(reg=>reg.update())
