@@ -1,0 +1,98 @@
+{
+  "updated": "2026-09-05T00:15:29.549030+00:00",
+  "source": "Yahoo Finance via GitHub Actions",
+  "usdTwd": 31.677,
+  "fxUpdated": "2026-09-04",
+  "fxSource": "Frankfurter",
+  "quotes": {
+    "QQQM": {
+      "price": 296.07,
+      "currency": "USD",
+      "exchange": "NGM",
+      "marketState": "",
+      "previousClose": 295.0,
+      "updated": "2026-09-05T00:15:27.251541+00:00"
+    },
+    "AVGO": {
+      "price": 357.895,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 368.79,
+      "updated": "2026-09-05T00:15:27.453670+00:00"
+    },
+    "MU": {
+      "price": 1016.59,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 932.86,
+      "updated": "2026-09-05T00:15:27.671050+00:00"
+    },
+    "TSLA": {
+      "price": 354.08,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 348.75,
+      "updated": "2026-09-05T00:15:27.860921+00:00"
+    },
+    "PGR": {
+      "price": 218.95,
+      "currency": "USD",
+      "exchange": "NYQ",
+      "marketState": "",
+      "previousClose": 218.64,
+      "updated": "2026-09-05T00:15:28.085128+00:00"
+    },
+    "POWR": {
+      "price": 25.76,
+      "currency": "USD",
+      "exchange": "PCX",
+      "marketState": "",
+      "previousClose": 25.44,
+      "updated": "2026-09-05T00:15:28.290962+00:00"
+    },
+    "PRGS": {
+      "price": 44.05,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 44.76,
+      "updated": "2026-09-05T00:15:28.490874+00:00"
+    },
+    "CAT": {
+      "price": 813.94,
+      "currency": "USD",
+      "exchange": "NYQ",
+      "marketState": "",
+      "previousClose": 800.25,
+      "updated": "2026-09-05T00:15:28.723774+00:00"
+    },
+    "VOO": {
+      "price": 708.01,
+      "currency": "USD",
+      "exchange": "PCX",
+      "marketState": "",
+      "previousClose": 707.24,
+      "updated": "2026-09-05T00:15:28.933551+00:00"
+    },
+    "XLV": {
+      "price": 171.45,
+      "currency": "USD",
+      "exchange": "PCX",
+      "marketState": "",
+      "previousClose": 171.16,
+      "updated": "2026-09-05T00:15:29.144586+00:00"
+    },
+    "JPM": {
+      "price": 358.64,
+      "currency": "USD",
+      "exchange": "NYQ",
+      "marketState": "",
+      "previousClose": 357.62,
+      "updated": "2026-09-05T00:15:29.370126+00:00"
+    }
+  },
+  "errors": []
+}
