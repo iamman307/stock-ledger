@@ -1,3 +1,4 @@
+# App ticker | Yahoo ticker (omit mapping when identical)
 QQQM
 AVGO
 MU
@@ -9,3 +10,12 @@ CAT
 VOO
 XLV
 JPM
+BE
+CLS
+SNDK
+GLW
+2421|2421.TW
+2356|2356.TW
+5351|5351.TWO
+2330|2330.TW
+0050|0050.TW
