@@ -1,3 +1,10 @@
+# 6.6.1
+
+- Fund availability estimates now equal allocation minus remaining cost plus recognized realized P/L, matching the dashboard's broker-first accounting basis.
+- Retained the cash-flow estimate and exposed its reconciliation difference; no transaction or actual cash balance is rewritten.
+- Total assets are explicitly estimates. Loan/deposit amounts remain planned reserves; manual historical trades remain excluded.
+- Missing holding quotes suppress total assets and unrealized P/L instead of treating unpriced holdings as losses.
+
 # 6.6.0
 
 - Locked the default TWD 2,000,000 plan into four separate allocations: 1,000,000 long-term, 700,000 swing, 100,000 loan-payment reserve and 200,000 breakable fixed deposit.

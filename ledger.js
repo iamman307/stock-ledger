@@ -1,7 +1,7 @@
-/* Stock Ledger 6.6.0 — pure accounting, portfolio policy and atomic import planning. */
+/* Stock Ledger 6.6.1 — pure accounting, portfolio policy and atomic import planning. */
 (function(root){
   'use strict';
-  const VERSION='6.6.0';
+  const VERSION='6.6.1';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const clone = x => JSON.parse(JSON.stringify(x));
@@ -126,7 +126,11 @@
     for(const t of computed.realized)buckets[classifyAccount(t.ticker)].realized+=t.pnlTwd;
     for(const b of Object.values(buckets)){
       b.tickers=[...new Set(b.tickers)];
-      b.equityKnown=b.available+b.marketValue;
+      // Preserve the cash-flow estimate for reconciliation; do not alter trades.
+      b.cashFlowAvailable=b.available;
+      b.available=b.allocation-b.cost+b.realized;
+      b.reconciliationAdjustment=b.available-b.cashFlowAvailable;
+      b.equityKnown=b.missingQuotes?NaN:b.available+b.marketValue;
       b.netGainKnown=b.equityKnown-b.allocation;
       b.usagePct=b.allocation?(b.allocation-b.available)/b.allocation*100:NaN;
     }

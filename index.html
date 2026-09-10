@@ -10,7 +10,7 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
 </style></head>
-<body><div class="wrap"><header class="app-header"><div class="brand"><div class="brand-mark">SL</div><div><h1>我的股票記帳</h1><p>資金配置・持倉・波段績效</p></div></div><span class="version-chip">v6.6.0</span></header>
+<body><div class="wrap"><header class="app-header"><div class="brand"><div class="brand-mark">SL</div><div><h1>我的股票記帳</h1><p>資金配置・持倉・波段績效</p></div></div><span class="version-chip">v6.6.1</span></header>
 <nav class="tabs" aria-label="主要功能"><button class="tab active" data-tab="dash"><span class="nav-icon">◫</span>總覽</button><button class="tab" data-tab="tx"><span class="nav-icon">＋</span>交易</button><button class="tab" data-tab="pos"><span class="nav-icon">▤</span>持倉</button><button class="tab" data-tab="perf"><span class="nav-icon">↗</span>績效</button><button class="tab" data-tab="quotes"><span class="nav-icon">◎</span>現價</button><button class="tab" data-tab="backup"><span class="nav-icon">◆</span>備份</button></nav>
 <div id="dataWarnings" class="status-banner" role="status"></div><section id="dash" class="panel active"><div id="fundOverview" class="fund-hero"></div><div class="section-title"><div><h2>投資組合</h2><p>行情估值與損益</p></div></div><div class="grid g4" id="kpis"></div><div class="card fx-card" id="fxDash">目前匯率會在開啟 App 後自動更新；歷史成交匯率不會被改寫。</div><div class="section-title"><div><h2>投資資金池</h2><p>從匯入紀錄開始推算可動用金額</p></div></div><div class="grid g2" id="accountSummary"></div><div class="section-title"><div><h2>保留資金</h2><p>與投資績效分開管理</p></div></div><div class="reserve-grid" id="reserveSummary"></div></section>
 <section id="tx" class="panel"><div class="section-title"><h2>新增交易</h2><span class="pill">平均成本法</span></div><div class="card"><form id="txForm" class="form">
@@ -43,6 +43,6 @@ Binance CSV 只會新增尚未存在的完整平倉交易；重複交易會自�
 匯入前仍建議先匯出一份 JSON 作為保險。
 </div>
 </div><div class="section-title"><div><h2>鎖定資金配置</h2><p>JSON 匯入與完整還原都不會覆寫</p></div><span id="fundLockState" class="lock-state">🔒 已鎖定</span></div><div class="card lock-panel"><div class="lock-panel-head"><div><h3>配置本金</h3><p>可動用金額由交易紀錄計算，不在這裡手動填寫。</p></div><button id="editFundPlan" type="button">解鎖調整</button></div><div class="form"><div><label>長期投資 TWD</label><input id="cashLong" type="number" min="0" step="10000" readonly></div><div><label>波段交易 TWD</label><input id="cashSwing" type="number" min="0" step="10000" readonly></div><div><label>信貸扣款帳戶 TWD</label><input id="cashLoan" type="number" min="0" step="10000" readonly></div><div><label>隨時解約定存 TWD</label><input id="cashReserve" type="number" min="0" step="10000" readonly></div><div class="span4 button-row"><button id="saveCash" class="primary" type="button" hidden>儲存並鎖定</button><button id="cancelFundPlan" type="button" hidden>取消</button></div></div><div class="fund-total"><span>配置合計</span><b id="fundPlanTotal">2,000,000 TWD</b></div></div></section>
-<div class="footer"><b>Stock Ledger v6.6.0</b>｜裝置端記帳・GitHub 行情快照｜不會自動下單</div></div>
+<div class="footer"><b>Stock Ledger v6.6.1</b>｜裝置端記帳・GitHub 行情快照｜不會自動下單</div></div>
 <!-- v65-patch.js is retired. This marker prevents legacy workers injecting it into this release. -->
-<script src="ledger.js?v=6.6.0"></script><script src="app.js?v=6.6.0"></script></body></html>
+<script src="ledger.js?v=6.6.1"></script><script src="app.js?v=6.6.1"></script></body></html>

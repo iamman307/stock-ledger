@@ -45,4 +45,10 @@ test('UI script executes with empty state; CSV missing ROI is null',()=>{
  const t=vm.runInContext(`binanceRowToTrade({'符號':'TEST','倉位方向':'LONG','已開啟':'2026-01-01 09:00:00','已關閉':'2026-01-02 09:00:00','進場價格':'100','平均收盤價':'110','已平倉交易量':'1','平倉盈虧':'10'})`,ctx);
  assert.equal(t.returnPct,null);near(t.priceReturnPct,10);assert.ok(Number.isNaN(vm.runInContext("parseNum('')",ctx)));
 });
+test('fund estimates reconcile broker P/L without rewriting cash flows',()=>{
+ const d=empty();d.transactions=[tx('a','INIT',2,100),tx('b','SELL',1,120,{brokerPnlTwd:30})];d.quotes.TEST={price:110,fx:1};
+ const p=L.applyPolicy(d),before=JSON.stringify(p),s=L.fundSummary(p).buckets['波段'];
+ near(s.available,700000-100+30);near(s.cashFlowAvailable,700000-200+120);near(s.reconciliationAdjustment,10);near(s.netGainKnown,40);assert.equal(JSON.stringify(p),before);
+ delete p.quotes.TEST;const missing=L.fundSummary(p).buckets['波段'];assert.equal(missing.missingQuotes,1);assert.ok(Number.isNaN(missing.equityKnown));
+});
 console.log(`${tests} checks passed`);
