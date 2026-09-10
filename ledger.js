@@ -1,11 +1,11 @@
-/* Stock Ledger 6.7.0 — accounting, locked portfolio policy and source-of-capital tracking. */
+/* Stock Ledger 6.7.1 — accounting, locked portfolio policy and source-of-capital tracking. */
 (function(root){
   'use strict';
-  const VERSION='6.7.0';
+  const VERSION='6.7.1';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
-  const DEFAULT_CAPITAL_TRACKING=Object.freeze({enabled:false,scope:'investment-only',resetDate:'',openingLoan:0,openingSelf:0,openingFamily:0,loanGross:0,loanFee:0,principalRepaid:0,interestPaid:0,otherPnlTwd:0,pnlBaselineTwd:0,events:[]});
+  const DEFAULT_CAPITAL_TRACKING=Object.freeze({enabled:false,scope:'investment-only',resetDate:'',openingLoan:0,openingSelf:0,openingFamily:0,loanGross:0,loanFee:0,principalRepaid:0,interestPaid:0,excludedDailyTwd:0,otherPnlTwd:0,pnlBaselineTwd:0,events:[]});
   const clone = x => JSON.parse(JSON.stringify(x));
   const finite = x => typeof x === 'number' && Number.isFinite(x);
   const has = x => x !== null && x !== undefined;
@@ -45,8 +45,17 @@
       enabled:Boolean(p.enabled),scope:'investment-only',resetDate,
       openingLoan:number('openingLoan'),openingSelf:number('openingSelf'),openingFamily:number('openingFamily'),
       loanGross:number('loanGross'),loanFee:number('loanFee'),principalRepaid:number('principalRepaid'),interestPaid:number('interestPaid'),
-      otherPnlTwd:number('otherPnlTwd',{signed:true}),pnlBaselineTwd:number('pnlBaselineTwd',{signed:true}),events
+      excludedDailyTwd:number('excludedDailyTwd'),otherPnlTwd:number('otherPnlTwd',{signed:true}),pnlBaselineTwd:number('pnlBaselineTwd',{signed:true}),events
     };
+  }
+  function parseCapitalSetup(setup){
+    if(!setup||typeof setup!=='object'||Array.isArray(setup))throw Error('私人資金設定檔格式錯誤');
+    if(setup.kind!=='stock-ledger-capital-setup'||Number(setup.schemaVersion)!==1)throw Error('這不是支援的私人資金設定檔');
+    const profile=normalizeCapitalTracking(setup.profile);
+    const opening=profile.openingLoan+profile.openingSelf+profile.openingFamily;
+    if(!profile.enabled||!profile.resetDate||opening<=0)throw Error('私人資金設定缺少啟用狀態、重置日或期初份額');
+    if(profile.principalRepaid>profile.loanGross)throw Error('已還本金不可大於原始信貸本金');
+    return {profile:{...profile,pnlBaselineTwd:0,events:[]},openingTotal:opening};
   }
   function applyPolicy(data,fundPlan){
     const d=clone(data);
@@ -250,7 +259,7 @@
     const aw=avg(wins),al=Math.abs(avg(losses));
     return {count:n,winRate:n?wins.length/n*100:NaN,avgWin:aw,avgLoss:al,payoff:al>0?aw/al:NaN,expectancy:avg(trades)};
   }
-  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,applyPolicy,fundSummary,capitalSummary,transactionValueTwd};
+  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,parseCapitalSetup,applyPolicy,fundSummary,capitalSummary,transactionValueTwd};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.Ledger=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -1,3 +1,10 @@
+# 6.7.1
+
+- Added a dedicated device-only private capital-settings import. It changes only the capital-source profile and never transactions, quotes or the locked fund plan.
+- Added an informational excluded-living-funds amount. It is already excluded from opening source shares and is never subtracted twice.
+- Private setup imports are schema-validated, previewed before confirmation and reset the P/L baseline at import time.
+- No personal balances are bundled in the public repository; prepared user values belong only in the separate private setup file.
+
 # 6.7.0
 
 - Added an optional investment-only capital-source ledger with loan, self-funded and family-funded shares.

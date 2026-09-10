@@ -1,4 +1,4 @@
-const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.7.0","publicSafe":true,"fundPlan":{"longTerm":1000000,"swing":700000,"loan":100000,"reserve":200000,"locked":true}}};let storageBlocked=false;let db;const storedRaw=localStorage.getItem(KEY);try{const parsed=JSON.parse(storedRaw||JSON.stringify(DEFAULT_DB));db=Ledger.applyPolicy(parsed);if(storedRaw&&JSON.stringify(parsed)!==JSON.stringify(db)){if(!localStorage.getItem(KEY+'-prepolicy-v6-6-0'))localStorage.setItem(KEY+'-prepolicy-v6-6-0',storedRaw);localStorage.setItem(KEY,JSON.stringify(db));}}catch(err){storageBlocked=true;db=Ledger.applyPolicy(DEFAULT_DB);setTimeout(()=>alert('資料無法讀取，原始資料未改動。請先匯出原始資料，再使用完整還原。'+err.message),0);}if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
+const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.7.1","publicSafe":true,"fundPlan":{"longTerm":1000000,"swing":700000,"loan":100000,"reserve":200000,"locked":true}}};let storageBlocked=false;let db;const storedRaw=localStorage.getItem(KEY);try{const parsed=JSON.parse(storedRaw||JSON.stringify(DEFAULT_DB));db=Ledger.applyPolicy(parsed);if(storedRaw&&JSON.stringify(parsed)!==JSON.stringify(db)){if(!localStorage.getItem(KEY+'-prepolicy-v6-6-0'))localStorage.setItem(KEY+'-prepolicy-v6-6-0',storedRaw);localStorage.setItem(KEY,JSON.stringify(db));}}catch(err){storageBlocked=true;db=Ledger.applyPolicy(DEFAULT_DB);setTimeout(()=>alert('資料無法讀取，原始資料未改動。請先匯出原始資料，再使用完整還原。'+err.message),0);}if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
 const $=id=>document.getElementById(id),N=x=>Number(x||0),F=(x,d=2)=>Number.isFinite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d}):'—',M=x=>Number.isFinite(x)?Math.round(x).toLocaleString('zh-TW'):'—',C=x=>x>0?'pos':x<0?'neg':'',D=s=>new Date(s),E=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function save(){if(storageBlocked)throw Error('資料讀取異常，禁止覆寫；請使用完整還原');db=Ledger.applyPolicy(db);localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
 function snapshot(){const raw=localStorage.getItem(KEY);if(raw){localStorage.setItem(KEY+'-preimport-backup',raw);let history=[];try{history=JSON.parse(localStorage.getItem(KEY+'-history')||'[]')}catch{};if(!Array.isArray(history))history=[];history.unshift({at:new Date().toISOString(),data:raw});localStorage.setItem(KEY+'-history',JSON.stringify(history.slice(0,5)));}}
@@ -80,7 +80,7 @@ function renderCapitalOverview(c){
     <div class="source-track" aria-label="目前投資資金來源比例"><span class="source-loan" style="width:${Math.max(0,loanPct)}%"></span><span class="source-self" style="width:${Math.max(0,selfPct)}%"></span><span class="source-family" style="width:${Math.max(0,familyPct)}%"></span></div>
     <div class="source-legend"><span><i class="dot source-loan"></i>信貸 ${F(loanPct,1)}%</span><span><i class="dot source-self"></i>自有 ${F(selfPct,1)}%</span><span><i class="dot source-family"></i>家庭 ${F(familyPct,1)}%</span></div>
     <div class="capital-metrics"><div><span>信貸分攤收益</span><b class="${C(summary.loanAttributedPnl)}">${summary.loanAttributedPnl>=0?'+':''}${M(summary.loanAttributedPnl)}</b></div><div><span>非信貸分攤收益</span><b class="${C(summary.nonLoanAttributedPnl)}">${summary.nonLoanAttributedPnl>=0?'+':''}${M(summary.nonLoanAttributedPnl)}</b></div><div><span>利息＋手續費</span><b class="neg">-${M(cost)}</b></div><div><span>信貸淨成果</span><b class="${C(summary.loanNetResult)}">${summary.loanNetResult>=0?'+':''}${M(summary.loanNetResult)}</b></div></div>
-    <div class="capital-foot"><span>剩餘本金 <b>${M(summary.outstandingPrincipal)}</b> TWD</span><span>非信貸占比 <b>${F(nonLoanPct,1)}%</b></span></div>
+    <div class="capital-foot"><span>剩餘本金 <b>${M(summary.outstandingPrincipal)}</b> TWD</span><span>非信貸占比 <b>${F(nonLoanPct,1)}%</b></span>${profile.excludedDailyTwd?`<span>另排除生活費 <b>${M(profile.excludedDailyTwd)}</b> TWD</span>`:''}</div>
     <p class="pool-note">只分攤重置日後的已記錄投資損益；買賣股票不用選來源。日常帳戶、生活費與旅遊日圓固定排除。</p>
     ${summary.issues.length?'<div class="estimate-note">'+summary.issues.map(E).join('；')+'</div>':''}`;
  }
@@ -179,7 +179,7 @@ async function refreshAllQuotes(showAlert=false){
     }
 
     db.meta=db.meta||{};
-    db.meta.lastQuoteSnapshot=snapshot.updated||new Date().toISOString();db.meta.appVersion='6.7.0';
+    db.meta.lastQuoteSnapshot=snapshot.updated||new Date().toISOString();db.meta.appVersion='6.7.1';
     if(storageBlocked)throw Error('資料讀取異常，停止寫入行情');
     localStorage.setItem(KEY,JSON.stringify(db));
     renderAll();
@@ -382,13 +382,25 @@ function renderCapitalSettings(c){
   $('capitalEnabled').checked=profile.enabled;$('capitalResetDate').value=profile.resetDate;
   $('capitalOpeningLoan').value=profile.openingLoan;$('capitalOpeningSelf').value=profile.openingSelf;$('capitalOpeningFamily').value=profile.openingFamily;
   $('capitalLoanGross').value=profile.loanGross;$('capitalLoanFee').value=profile.loanFee;$('capitalPrincipalRepaid').value=profile.principalRepaid;
-  $('capitalInterestPaid').value=profile.interestPaid;$('capitalOtherPnl').value=profile.otherPnlTwd;
+  $('capitalInterestPaid').value=profile.interestPaid;$('capitalExcludedDaily').value=profile.excludedDailyTwd;$('capitalOtherPnl').value=profile.otherPnlTwd;
  }
  const status=$('capitalSettingsSummary');
- status.innerHTML=summary.configured?`<div><span>重置日</span><b>${E(profile.resetDate)}</b></div><div><span>目前來源份額</span><b>${M(summary.sourceTotal)} TWD</b></div><div><span>剩餘信貸本金</span><b>${M(summary.outstandingPrincipal)} TWD</b></div><div><span>重置後投資損益</span><b class="${C(summary.trackedPnlTwd)}">${summary.trackedPnlTwd>=0?'+':''}${M(summary.trackedPnlTwd)} TWD</b></div>`:'<div class="capital-setup-message">尚未啟用。第一次儲存時會把當下股票損益設為 0 起點，過去不回推。</div>';
+ status.innerHTML=summary.configured?`<div><span>重置日</span><b>${E(profile.resetDate)}</b></div><div><span>目前來源份額</span><b>${M(summary.sourceTotal)} TWD</b></div><div><span>生活資金排除</span><b>${M(profile.excludedDailyTwd)} TWD</b></div><div><span>剩餘信貸本金</span><b>${M(summary.outstandingPrincipal)} TWD</b></div><div><span>重置後投資損益</span><b class="${C(summary.trackedPnlTwd)}">${summary.trackedPnlTwd>=0?'+':''}${M(summary.trackedPnlTwd)} TWD</b></div>`:'<div class="capital-setup-message">尚未啟用。第一次儲存時會把當下股票損益設為 0 起點，過去不回推。</div>';
  const rows=[...profile.events].sort((a,b)=>D(b.date)-D(a.date));
  $('capitalEventTable').innerHTML='<thead><tr><th>日期</th><th>動作</th><th>來源</th><th>金額</th><th>備註</th><th></th></tr></thead><tbody>'+(rows.length?rows.map(event=>`<tr><td>${E(event.date)}</td><td>${event.type==='IN'?'投入':'提領'}</td><td>${E(sourceLabels[event.source]||event.source)}</td><td>${M(event.amount)}</td><td>${E(event.note||'—')}</td><td><button class="tiny danger" data-delete-capital="${E(event.id)}">刪除</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">尚無重置日後的資金異動</td></tr>')+'</tbody>';
 }
+$('importCapitalSettings').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{
+  const setup=Ledger.parseCapitalSetup(JSON.parse(await file.text())),stockPnl=stockPnlTwd(compute());
+  if(!Number.isFinite(stockPnl))throw Error('持倉行情尚未完整，請先更新行情再匯入');
+  const profile={...setup.profile,pnlBaselineTwd:stockPnl+setup.profile.otherPnlTwd,events:[]};
+  const preview=`私人資金設定預覽\n重置日 ${profile.resetDate}\n投資池 ${M(setup.openingTotal)} TWD\n信貸 ${M(profile.openingLoan)}｜自有 ${M(profile.openingSelf)}｜家庭 ${M(profile.openingFamily)}\n另排除生活費 ${M(profile.excludedDailyTwd)} TWD\n\n只會更新這台裝置的資金來源，不會更動交易、行情或鎖定資金配置。確定匯入？`;
+  if(!confirm(preview))return;
+  const next=JSON.parse(JSON.stringify(db));next.meta.capitalTracking=profile;capitalFormDirty=false;commitDb(next);
+  alert('私人資金設定已套用；過去損益已設為起點，從現在開始分攤。');
+ }catch(err){alert('私人資金設定未匯入：'+err.message)}finally{e.target.value=''}
+};
 $('capitalForm').addEventListener('input',()=>capitalFormDirty=true);
 $('capitalForm').onsubmit=e=>{
  e.preventDefault();
@@ -397,7 +409,7 @@ $('capitalForm').onsubmit=e=>{
   const profile={...current,enabled:$('capitalEnabled').checked,resetDate:$('capitalResetDate').value,
    openingLoan:N($('capitalOpeningLoan').value),openingSelf:N($('capitalOpeningSelf').value),openingFamily:N($('capitalOpeningFamily').value),
    loanGross:N($('capitalLoanGross').value),loanFee:N($('capitalLoanFee').value),principalRepaid:N($('capitalPrincipalRepaid').value),
-   interestPaid:N($('capitalInterestPaid').value),otherPnlTwd:N($('capitalOtherPnl').value),scope:'investment-only'};
+   interestPaid:N($('capitalInterestPaid').value),excludedDailyTwd:N($('capitalExcludedDaily').value),otherPnlTwd:N($('capitalOtherPnl').value),scope:'investment-only'};
   const opening=profile.openingLoan+profile.openingSelf+profile.openingFamily;
   if(profile.enabled&&(!profile.resetDate||opening<=0))throw Error('啟用前請填重置日，且期初投資來源合計必須大於 0');
   if(profile.principalRepaid>profile.loanGross)throw Error('已還本金不可大於原始信貸本金');

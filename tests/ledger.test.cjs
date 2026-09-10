@@ -65,4 +65,9 @@ test('merge keeps device capital settings instead of imported metadata',()=>{
  const incoming=empty();incoming.meta.capitalTracking={enabled:true,resetDate:'2025-01-01',openingLoan:1,openingSelf:0,openingFamily:0,pnlBaselineTwd:0,events:[]};
  const merged=L.merge(L.applyPolicy(d),L.applyPolicy(incoming)).db;assert.equal(merged.meta.capitalTracking.resetDate,'2026-09-10');assert.equal(merged.meta.capitalTracking.openingLoan,100);
 });
+test('private capital setup is validated and starts without imported P/L history',()=>{
+ const setup={kind:'stock-ledger-capital-setup',schemaVersion:1,profile:{enabled:true,resetDate:'2026-09-10',openingLoan:700,openingSelf:200,openingFamily:100,loanGross:800,loanFee:5,principalRepaid:50,interestPaid:10,excludedDailyTwd:80,otherPnlTwd:0,pnlBaselineTwd:123,events:[{id:'old',date:'2026-09-10',type:'IN',source:'self',amount:1,pnlCheckpointTwd:0}]}};
+ const parsed=L.parseCapitalSetup(setup);assert.equal(parsed.openingTotal,1000);assert.equal(parsed.profile.excludedDailyTwd,80);assert.equal(parsed.profile.pnlBaselineTwd,0);assert.deepEqual(parsed.profile.events,[]);
+ assert.throws(()=>L.parseCapitalSetup({...setup,kind:'wrong'}));assert.throws(()=>L.parseCapitalSetup({...setup,profile:{...setup.profile,principalRepaid:801}}));
+});
 console.log(`${tests} checks passed`);
