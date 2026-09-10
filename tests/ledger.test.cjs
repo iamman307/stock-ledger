@@ -51,4 +51,18 @@ test('fund estimates reconcile broker P/L without rewriting cash flows',()=>{
  near(s.available,700000-100+30);near(s.cashFlowAvailable,700000-200+120);near(s.reconciliationAdjustment,10);near(s.netGainKnown,40);assert.equal(JSON.stringify(p),before);
  delete p.quotes.TEST;const missing=L.fundSummary(p).buckets['波段'];assert.equal(missing.missingQuotes,1);assert.ok(Number.isNaN(missing.equityKnown));
 });
+test('capital source tracking crystallizes P/L before new self capital',()=>{
+ const d=empty();d.meta.capitalTracking={enabled:true,resetDate:'2026-09-10',openingLoan:800,openingSelf:200,openingFamily:0,loanGross:1000,loanFee:10,principalRepaid:100,interestPaid:20,pnlBaselineTwd:0,events:[{id:'fund-1',date:'2026-10-01',type:'IN',source:'self',amount:100,pnlCheckpointTwd:100,note:'salary'}]};
+ const p=L.applyPolicy(d),s=L.capitalSummary(p,200);
+ near(s.attributedPnl.loan,153.33333333333334);near(s.attributedPnl.self,46.666666666666664);near(s.sourceTotal,1300);near(s.outstandingPrincipal,900);near(s.loanNetResult,123.33333333333334);assert.equal(s.configured,true);
+});
+test('pro-rata investment withdrawal preserves source ratio',()=>{
+ const d=empty();d.meta.capitalTracking={enabled:true,resetDate:'2026-09-10',openingLoan:750,openingSelf:200,openingFamily:50,pnlBaselineTwd:0,events:[{id:'fund-1',date:'2026-10-01',type:'OUT',source:'proRata',amount:100,pnlCheckpointTwd:0,note:''}]};
+ const s=L.capitalSummary(L.applyPolicy(d),0);near(s.values.loan,675);near(s.values.self,180);near(s.values.family,45);near(s.ratios.loan,.75);
+});
+test('merge keeps device capital settings instead of imported metadata',()=>{
+ const d=empty();d.meta.capitalTracking={enabled:true,resetDate:'2026-09-10',openingLoan:100,openingSelf:20,openingFamily:0,pnlBaselineTwd:0,events:[]};
+ const incoming=empty();incoming.meta.capitalTracking={enabled:true,resetDate:'2025-01-01',openingLoan:1,openingSelf:0,openingFamily:0,pnlBaselineTwd:0,events:[]};
+ const merged=L.merge(L.applyPolicy(d),L.applyPolicy(incoming)).db;assert.equal(merged.meta.capitalTracking.resetDate,'2026-09-10');assert.equal(merged.meta.capitalTracking.openingLoan,100);
+});
 console.log(`${tests} checks passed`);

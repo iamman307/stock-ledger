@@ -1,4 +1,4 @@
-const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.6.1","publicSafe":true,"fundPlan":{"longTerm":1000000,"swing":700000,"loan":100000,"reserve":200000,"locked":true}}};let storageBlocked=false;let db;const storedRaw=localStorage.getItem(KEY);try{const parsed=JSON.parse(storedRaw||JSON.stringify(DEFAULT_DB));db=Ledger.applyPolicy(parsed);if(storedRaw&&JSON.stringify(parsed)!==JSON.stringify(db)){if(!localStorage.getItem(KEY+'-prepolicy-v6-6-0'))localStorage.setItem(KEY+'-prepolicy-v6-6-0',storedRaw);localStorage.setItem(KEY,JSON.stringify(db));}}catch(err){storageBlocked=true;db=Ledger.applyPolicy(DEFAULT_DB);setTimeout(()=>alert('資料無法讀取，原始資料未改動。請先匯出原始資料，再使用完整還原。'+err.message),0);}if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
+const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.7.0","publicSafe":true,"fundPlan":{"longTerm":1000000,"swing":700000,"loan":100000,"reserve":200000,"locked":true}}};let storageBlocked=false;let db;const storedRaw=localStorage.getItem(KEY);try{const parsed=JSON.parse(storedRaw||JSON.stringify(DEFAULT_DB));db=Ledger.applyPolicy(parsed);if(storedRaw&&JSON.stringify(parsed)!==JSON.stringify(db)){if(!localStorage.getItem(KEY+'-prepolicy-v6-6-0'))localStorage.setItem(KEY+'-prepolicy-v6-6-0',storedRaw);localStorage.setItem(KEY,JSON.stringify(db));}}catch(err){storageBlocked=true;db=Ledger.applyPolicy(DEFAULT_DB);setTimeout(()=>alert('資料無法讀取，原始資料未改動。請先匯出原始資料，再使用完整還原。'+err.message),0);}if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
 const $=id=>document.getElementById(id),N=x=>Number(x||0),F=(x,d=2)=>Number.isFinite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d}):'—',M=x=>Number.isFinite(x)?Math.round(x).toLocaleString('zh-TW'):'—',C=x=>x>0?'pos':x<0?'neg':'',D=s=>new Date(s),E=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function save(){if(storageBlocked)throw Error('資料讀取異常，禁止覆寫；請使用完整還原');db=Ledger.applyPolicy(db);localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
 function snapshot(){const raw=localStorage.getItem(KEY);if(raw){localStorage.setItem(KEY+'-preimport-backup',raw);let history=[];try{history=JSON.parse(localStorage.getItem(KEY+'-history')||'[]')}catch{};if(!Array.isArray(history))history=[];history.unshift({at:new Date().toISOString(),data:raw});localStorage.setItem(KEY+'-history',JSON.stringify(history.slice(0,5)));}}
@@ -53,6 +53,40 @@ function updateAccountHint(){const ticker=$('ticker').value.trim().toUpperCase()
 $('ticker').addEventListener('input',updateAccountHint);updateAccountHint();
 $('txForm').onsubmit=e=>{e.preventDefault();const ticker=$('ticker').value.trim().toUpperCase();const t={tax:N($('tax').value),id:crypto.randomUUID(),date:$('date').value,account:Ledger.classifyAccount(ticker),ticker,asset:$('asset').value,side:$('side').value,qty:N($('qty').value),price:N($('price').value),fee:N($('fee').value),fx:N($('fx').value)||1,stop:$('stop').value===''?null:N($('stop').value),currency:$('currency').value,exitReason:$('exitReason').value,note:$('note').value.trim()};if(!t.ticker||t.qty<=0)return alert('請確認代號與數量');try{const next=JSON.parse(JSON.stringify(db));next.transactions.push(t);const checked=Ledger.applyPolicy(next);const c=Ledger.compute(checked);if(c.issues.length)throw Error(c.issues.join('\n'));commitDb(checked);}catch(err){return alert(err.message)}e.target.reset();$('fee').value=0;$('fx').value=db.meta?.currentUsdTwd||1;$('currency').value='USD';setNow();updateAccountHint()};
 function compute(){return Ledger.compute(db)}
+function stockPnlTwd(c=compute()){
+ const f=Ledger.fundSummary(db,c),long=f.buckets['長期'],swing=f.buckets['波段'];
+ return long.missingQuotes+swing.missingQuotes?NaN:long.netGainKnown+swing.netGainKnown;
+}
+function trackedCapitalPnl(c=compute(),profile=Ledger.normalizeCapitalTracking(db.meta?.capitalTracking)){
+ const stock=stockPnlTwd(c);
+ return Number.isFinite(stock)?stock+profile.otherPnlTwd:NaN;
+}
+function openCapitalSettings(){
+ const index=tabButtons.findIndex(button=>button.dataset.tab==='backup');
+ if(index>=0)showTabByIndex(index,1);
+ setTimeout(()=>$('capitalSettings')?.scrollIntoView({behavior:'smooth',block:'start'}),0);
+}
+function renderCapitalOverview(c){
+ const profile=Ledger.normalizeCapitalTracking(db.meta?.capitalTracking);
+ const summary=Ledger.capitalSummary(db,trackedCapitalPnl(c,profile));
+ const el=$('capitalOverview');if(!el)return;
+ if(!summary.configured){
+   el.innerHTML='<div class="capital-empty"><div><span class="scope-badge">只限投資</span><h3>資金來源尚未啟用</h3><p>啟用時會把目前損益設為起點；日常資金與旅遊日圓不會納入。</p></div><button id="goCapitalSettings" type="button">設定重置日</button></div>';
+ }else{
+   const loanPct=summary.ratios.loan*100,selfPct=summary.ratios.self*100,familyPct=summary.ratios.family*100,nonLoanPct=(summary.ratios.self+summary.ratios.family)*100;
+   const cost=profile.loanFee+profile.interestPaid;
+   el.innerHTML=`
+    <div class="capital-head"><div><span class="scope-badge">投資專用・${E(profile.resetDate)} 起</span><h3>信貸與自有資金收益</h3></div><button id="goCapitalSettings" class="tiny" type="button">管理</button></div>
+    <div class="source-track" aria-label="目前投資資金來源比例"><span class="source-loan" style="width:${Math.max(0,loanPct)}%"></span><span class="source-self" style="width:${Math.max(0,selfPct)}%"></span><span class="source-family" style="width:${Math.max(0,familyPct)}%"></span></div>
+    <div class="source-legend"><span><i class="dot source-loan"></i>信貸 ${F(loanPct,1)}%</span><span><i class="dot source-self"></i>自有 ${F(selfPct,1)}%</span><span><i class="dot source-family"></i>家庭 ${F(familyPct,1)}%</span></div>
+    <div class="capital-metrics"><div><span>信貸分攤收益</span><b class="${C(summary.loanAttributedPnl)}">${summary.loanAttributedPnl>=0?'+':''}${M(summary.loanAttributedPnl)}</b></div><div><span>非信貸分攤收益</span><b class="${C(summary.nonLoanAttributedPnl)}">${summary.nonLoanAttributedPnl>=0?'+':''}${M(summary.nonLoanAttributedPnl)}</b></div><div><span>利息＋手續費</span><b class="neg">-${M(cost)}</b></div><div><span>信貸淨成果</span><b class="${C(summary.loanNetResult)}">${summary.loanNetResult>=0?'+':''}${M(summary.loanNetResult)}</b></div></div>
+    <div class="capital-foot"><span>剩餘本金 <b>${M(summary.outstandingPrincipal)}</b> TWD</span><span>非信貸占比 <b>${F(nonLoanPct,1)}%</b></span></div>
+    <p class="pool-note">只分攤重置日後的已記錄投資損益；買賣股票不用選來源。日常帳戶、生活費與旅遊日圓固定排除。</p>
+    ${summary.issues.length?'<div class="estimate-note">'+summary.issues.map(E).join('；')+'</div>':''}`;
+ }
+ $('goCapitalSettings').onclick=openCapitalSettings;
+}
+
 function renderDash(c){
  const f=Ledger.fundSummary(db,c),long=f.buckets['長期'],swing=f.buckets['波段'];
  const pools=[['長期資金',long,'pool-long'],['波段資金',swing,'pool-swing']];
@@ -63,13 +97,14 @@ function renderDash(c){
    <div class="fund-hero-top"><div><div class="eyebrow">鎖定資金配置</div><div class="hero-amount">${M(f.totalPlan)} <small>TWD</small></div></div><span class="lock-badge">🔒 匯入不覆寫</span></div>
    <div class="allocation-track" aria-label="資金配置比例"><span class="seg-long" style="width:${f.plan.longTerm/f.totalPlan*100}%"></span><span class="seg-swing" style="width:${f.plan.swing/f.totalPlan*100}%"></span><span class="seg-loan" style="width:${f.plan.loan/f.totalPlan*100}%"></span><span class="seg-reserve" style="width:${f.plan.reserve/f.totalPlan*100}%"></span></div>
    <div class="allocation-legend"><span><i class="dot long"></i>長期 100 萬</span><span><i class="dot swing"></i>波段 70 萬</span><span><i class="dot loan"></i>信貸 10 萬</span><span><i class="dot reserve"></i>定存 20 萬</span></div>
-   <div class="hero-metrics"><div><span>估算總資產</span><b>${M(totalTracked)} TWD</b></div><div><span>相對規劃損益</span><b class="${C(totalGain)}">${totalGain>=0?'+':''}${M(totalGain)} TWD</b></div></div>
-   <p class="pool-note">配置本金＋股票已實現＋未實現損益。券商損益優先，未提供時依成交估算；非銀行餘額。信貸與定存按規劃額，其他歷史交易未納入。</p>
+   <div class="hero-metrics"><div><span>規劃內估算資產</span><b>${M(totalTracked)} TWD</b></div><div><span>相對規劃損益</span><b class="${C(totalGain)}">${totalGain>=0?'+':''}${M(totalGain)} TWD</b></div></div>
+   <p class="pool-note">只含股票投資池與規劃保留資金；不連接銀行，也不含日常資金或旅遊日圓。券商損益優先，未提供時依成交估算。</p>
    <details class="pool-note"><summary>查看估算口徑差異</summary>交易現金流推算餘額：${M(long.cashFlowAvailable+swing.cashFlowAvailable)} TWD<br>損益口徑調整：${F(long.reconciliationAdjustment+swing.reconciliationAdjustment)} TWD<br>此差額只用於估算對帳，不代表實際入金或出金。</details>
    ${partial?`<div class="estimate-note">有 ${partial} 個持倉缺少行情，總資產與未實現損益暫不計算；市值僅列已知部分。</div>`:''}`;
  $('kpis').innerHTML=[['持倉市值',M(mv),''],['持倉成本',M(cost),''],['未實現損益',M(unr),C(unr)],['已實現損益',M(r),C(r)]].map(x=>`<div class="card kpi"><div class="label">${x[0]}</div><div class="value ${x[2]}">${x[1]}</div><div class="unit">TWD</div></div>`).join('');
  $('accountSummary').innerHTML=pools.map(([label,b,klass])=>{const used=Math.max(0,Math.min(100,b.usagePct)),over=b.available<0;return `<article class="pool-card ${klass}"><div class="pool-head"><div><span class="pool-kicker">${label}</span><h3>${M(b.allocation)} <small>TWD</small></h3></div><span class="pool-status ${over?'over':''}">${over?'超出配置':'配置內'}</span></div><div class="pool-progress"><span style="width:${used}%"></span></div><div class="pool-stats"><div><span>估算可動用</span><b class="${over?'neg':''}">${M(b.available)}</b></div><div><span>目前持倉成本</span><b>${M(b.cost)}</b></div><div><span>已知市值</span><b>${M(b.marketValue)}</b></div><div><span>已實現損益</span><b class="${C(b.realized)}">${b.realized>=0?'+':''}${M(b.realized)}</b></div></div><div class="ticker-list">${b.tickers.length?b.tickers.map(t=>`<span>${E(t)}</span>`).join(''):'<span class="muted">目前無持倉</span>'}</div><p class="pool-note">自匯入紀錄起估算${b.missingQuotes?`；${b.missingQuotes} 檔缺行情`:''}</p></article>`}).join('');
- if($('reserveSummary'))$('reserveSummary').innerHTML=`<div class="reserve-item"><div class="reserve-icon">貸</div><div><span>信貸扣款帳戶</span><b>${M(f.plan.loan)} TWD</b></div><em>不列入投資</em></div><div class="reserve-item"><div class="reserve-icon">存</div><div><span>隨時解約定存</span><b>${M(f.plan.reserve)} TWD</b></div><em>緊急預備</em></div>`;
+ if($('reserveSummary'))$('reserveSummary').innerHTML=`<div class="reserve-item"><div class="reserve-icon">貸</div><div><span>信貸扣款帳戶</span><b>${M(f.plan.loan)} TWD</b></div><em>不列入股票損益</em></div><div class="reserve-item"><div class="reserve-icon">存</div><div><span>隨時解約定存</span><b>${M(f.plan.reserve)} TWD</b></div><em>不列入股票損益</em></div>`;
+ renderCapitalOverview(c);
 }
 function renderTx(){const rows=[...db.transactions].sort((a,b)=>D(b.date)-D(a.date));$('txTable').innerHTML=`<thead><tr><th>日期</th><th>帳戶</th><th>代號</th><th>動作</th><th>數量</th><th>價格</th><th>費用</th><th>匯率</th><th>停損</th><th></th></tr></thead><tbody>`+(rows.length?rows.map(t=>`<tr><td>${E(t.date.replace('T',' '))}</td><td>${E(t.account)}</td><td>${E(t.ticker)}</td><td>${E(t.side)}</td><td>${F(t.qty,4)}</td><td>${F(t.price,4)}</td><td>${F(t.fee)}</td><td>${F(t.fx,4)}</td><td>${t.stop==null?'—':F(t.stop,4)}</td><td><button class="tiny danger" data-delete-tx="${E(t.id)}">刪除</button></td></tr>`).join(''):`<tr><td colspan="10" class="empty">尚無交易</td></tr>`)+`</tbody>`}window.delTx=id=>{if(confirm('確定刪除？')){const next=JSON.parse(JSON.stringify(db));next.transactions=next.transactions.filter(x=>x.id!==id);const issues=Ledger.compute(next).issues;if(issues.length)return alert('刪除會造成持股不足，未變更：'+issues.join('\n'));commitDb(next)}};$('clearAll').onclick=()=>{if(confirm('確定清空全部交易？')){const next=JSON.parse(JSON.stringify(db));next.transactions=[];commitDb(next)}};
 function renderPos(c){const ps=c.positions.filter(p=>p.qty>0);$('posTable').innerHTML=`<thead><tr><th>代號</th><th>帳戶</th><th>數量</th><th>平均成本</th><th>歷史有效匯率</th><th>現價</th><th>目前匯率</th><th>市值 TWD</th><th>未實現</th><th>股價影響</th><th>匯率影響</th><th>報酬率</th></tr></thead><tbody>`+(ps.length?ps.map(p=>{const avgB=p.costBase/p.qty,histFx=p.costBase?p.costTwd/p.costBase:NaN,q=db.quotes[p.ticker],baseNow=q?p.qty*q.price:NaN,mv=q?baseNow*q.fx:NaN,pnl=q?mv-p.costTwd:NaN,pricePnl=q&&Number.isFinite(histFx)?baseNow*histFx-p.costTwd:NaN,fxPnl=q&&Number.isFinite(histFx)?baseNow*(q.fx-histFx):NaN,ret=q&&p.costTwd?pnl/p.costTwd*100:NaN;return `<tr><td>${E(p.ticker)}</td><td>${E(p.account)}</td><td>${F(p.qty,4)}</td><td>${F(avgB,4)} ${E(p.currency)}</td><td>${Number.isFinite(histFx)?F(histFx,4):'—'}</td><td>${q?F(q.price,4):'—'}</td><td>${q?F(q.fx,4):'—'}</td><td>${M(mv)}</td><td class="${C(pnl)}">${M(pnl)}</td><td class="${C(pricePnl)}">${M(pricePnl)}</td><td class="${C(fxPnl)}">${M(fxPnl)}</td><td class="${C(ret)}">${Number.isFinite(ret)?F(ret,2)+'%':'—'}</td></tr>`}).join(''):`<tr><td colspan="12" class="empty">尚無持倉</td></tr>`)+`</tbody>`}
@@ -144,7 +179,7 @@ async function refreshAllQuotes(showAlert=false){
     }
 
     db.meta=db.meta||{};
-    db.meta.lastQuoteSnapshot=snapshot.updated||new Date().toISOString();db.meta.appVersion='6.6.1';
+    db.meta.lastQuoteSnapshot=snapshot.updated||new Date().toISOString();db.meta.appVersion='6.7.0';
     if(storageBlocked)throw Error('資料讀取異常，停止寫入行情');
     localStorage.setItem(KEY,JSON.stringify(db));
     renderAll();
@@ -301,7 +336,7 @@ function importBinanceRows(rows){
 
 $('importJson').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{
  const incoming=Ledger.applyPolicy(JSON.parse(await f.text()),db.meta.fundPlan),{db:next,report:r}=Ledger.merge(db,incoming);
- const msg='匯入預覽\n股票 新增 '+r.txAdded+' / 修正 '+r.txUpdated+' / 重複 '+r.txSkipped+'\n歷史 新增 '+r.manualAdded+' / 修正 '+r.manualUpdated+' / 重複 '+r.manualSkipped+'\n資金池、行情保持手機原值\n'+r.changes.slice(0,15).join('\n');
+ const msg='匯入預覽\n股票 新增 '+r.txAdded+' / 修正 '+r.txUpdated+' / 重複 '+r.txSkipped+'\n歷史 新增 '+r.manualAdded+' / 修正 '+r.manualUpdated+' / 重複 '+r.manualSkipped+'\n資金池、資金來源、行情保持手機原值\n'+r.changes.slice(0,15).join('\n');
  if(confirm(msg+'\n確認寫入？')){commitDb(next);alert('匯入完成，已保留還原快照');}
  }catch(err){alert('未匯入：'+err.message)}finally{e.target.value='';}};
 $('importBinanceCsv').onchange=async e=>{
@@ -338,14 +373,82 @@ $('editFundPlan').onclick=()=>{if(confirm('資金配置是績效計算基準。�
 $('cancelFundPlan').onclick=()=>{setFundPlanEditing(false);renderCash()};
 $('saveCash').onclick=()=>{try{const plan=Ledger.normalizeFundPlan({longTerm:N($('cashLong').value),swing:N($('cashSwing').value),loan:N($('cashLoan').value),reserve:N($('cashReserve').value)});if(plan.longTerm+plan.swing+plan.loan+plan.reserve<=0)throw Error('資金配置不可全部為 0');const next=JSON.parse(JSON.stringify(db));next.meta.fundPlan=plan;commitDb(next,plan);setFundPlanEditing(false);alert('資金配置已儲存並重新鎖定。')}catch(err){alert(err.message)}};
 function renderCash(){const p=Ledger.normalizeFundPlan(db.meta?.fundPlan);$('cashLong').value=p.longTerm;$('cashSwing').value=p.swing;$('cashLoan').value=p.loan;$('cashReserve').value=p.reserve;if(!fundPlanEditing)setFundPlanEditing(false);if($('fundPlanTotal'))$('fundPlanTotal').textContent=M(p.longTerm+p.swing+p.loan+p.reserve)+' TWD'}
-function renderAll(){const c=compute();$('dataWarnings').textContent=c.issues.join('；')||'資料正常｜'+db.transactions.length+' 筆股票交易・'+db.manualTrades.length+' 筆其他歷史交易';$('dataWarnings').classList.toggle('has-warning',c.issues.length>0);renderDash(c);renderTx();renderPos(c);renderPerf(c);renderManualTrades();renderQuotes();renderCash();if($('fxDash'))$('fxDash').innerHTML=db.meta?.currentUsdTwd?`USD/TWD <b>${F(db.meta.currentUsdTwd,4)}</b><span>更新 ${db.meta.fxUpdated?new Date(db.meta.fxUpdated).toLocaleString('zh-TW'):'—'}・歷史成交匯率不變</span>`:'USD/TWD 尚未成功更新；歷史成交匯率保持不變。'}
+
+let capitalFormDirty=false;
+const sourceLabels={loan:'信貸',self:'自有',family:'家庭贊助',proRata:'按比例'};
+function renderCapitalSettings(c){
+ const profile=Ledger.normalizeCapitalTracking(db.meta?.capitalTracking),currentPnl=trackedCapitalPnl(c,profile),summary=Ledger.capitalSummary(db,currentPnl);
+ if(!capitalFormDirty){
+  $('capitalEnabled').checked=profile.enabled;$('capitalResetDate').value=profile.resetDate;
+  $('capitalOpeningLoan').value=profile.openingLoan;$('capitalOpeningSelf').value=profile.openingSelf;$('capitalOpeningFamily').value=profile.openingFamily;
+  $('capitalLoanGross').value=profile.loanGross;$('capitalLoanFee').value=profile.loanFee;$('capitalPrincipalRepaid').value=profile.principalRepaid;
+  $('capitalInterestPaid').value=profile.interestPaid;$('capitalOtherPnl').value=profile.otherPnlTwd;
+ }
+ const status=$('capitalSettingsSummary');
+ status.innerHTML=summary.configured?`<div><span>重置日</span><b>${E(profile.resetDate)}</b></div><div><span>目前來源份額</span><b>${M(summary.sourceTotal)} TWD</b></div><div><span>剩餘信貸本金</span><b>${M(summary.outstandingPrincipal)} TWD</b></div><div><span>重置後投資損益</span><b class="${C(summary.trackedPnlTwd)}">${summary.trackedPnlTwd>=0?'+':''}${M(summary.trackedPnlTwd)} TWD</b></div>`:'<div class="capital-setup-message">尚未啟用。第一次儲存時會把當下股票損益設為 0 起點，過去不回推。</div>';
+ const rows=[...profile.events].sort((a,b)=>D(b.date)-D(a.date));
+ $('capitalEventTable').innerHTML='<thead><tr><th>日期</th><th>動作</th><th>來源</th><th>金額</th><th>備註</th><th></th></tr></thead><tbody>'+(rows.length?rows.map(event=>`<tr><td>${E(event.date)}</td><td>${event.type==='IN'?'投入':'提領'}</td><td>${E(sourceLabels[event.source]||event.source)}</td><td>${M(event.amount)}</td><td>${E(event.note||'—')}</td><td><button class="tiny danger" data-delete-capital="${E(event.id)}">刪除</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">尚無重置日後的資金異動</td></tr>')+'</tbody>';
+}
+$('capitalForm').addEventListener('input',()=>capitalFormDirty=true);
+$('capitalForm').onsubmit=e=>{
+ e.preventDefault();
+ try{
+  const current=Ledger.normalizeCapitalTracking(db.meta?.capitalTracking);
+  const profile={...current,enabled:$('capitalEnabled').checked,resetDate:$('capitalResetDate').value,
+   openingLoan:N($('capitalOpeningLoan').value),openingSelf:N($('capitalOpeningSelf').value),openingFamily:N($('capitalOpeningFamily').value),
+   loanGross:N($('capitalLoanGross').value),loanFee:N($('capitalLoanFee').value),principalRepaid:N($('capitalPrincipalRepaid').value),
+   interestPaid:N($('capitalInterestPaid').value),otherPnlTwd:N($('capitalOtherPnl').value),scope:'investment-only'};
+  const opening=profile.openingLoan+profile.openingSelf+profile.openingFamily;
+  if(profile.enabled&&(!profile.resetDate||opening<=0))throw Error('啟用前請填重置日，且期初投資來源合計必須大於 0');
+  if(profile.principalRepaid>profile.loanGross)throw Error('已還本金不可大於原始信貸本金');
+  const stockPnl=stockPnlTwd(compute());
+  if(profile.enabled&&!Number.isFinite(stockPnl))throw Error('持倉行情尚未完整，請先更新行情再啟用');
+  const firstSetup=profile.enabled&&(!current.resetDate||(current.openingLoan+current.openingSelf+current.openingFamily)<=0);
+  if(firstSetup){profile.pnlBaselineTwd=stockPnl+profile.otherPnlTwd;profile.events=[];}
+  const openingChanged=Boolean(current.resetDate)&&['openingLoan','openingSelf','openingFamily','resetDate'].some(key=>current[key]!==profile[key]);
+  if(openingChanged&&!confirm('修改期初來源會重新計算後續全部收益分攤，確定儲存？'))return;
+  const next=JSON.parse(JSON.stringify(db));next.meta.capitalTracking=Ledger.normalizeCapitalTracking(profile);
+  capitalFormDirty=false;commitDb(next);alert(firstSetup?'資金來源統計已啟用；過去損益已歸零，從現在開始計算。':'資金來源設定已儲存。');
+ }catch(err){alert(err.message)}
+};
+$('capitalEventType').addEventListener('change',()=>{if($('capitalEventType').value==='IN'&&$('capitalEventSource').value==='proRata')$('capitalEventSource').value='self'});
+$('capitalEventForm').onsubmit=e=>{
+ e.preventDefault();
+ try{
+  const profile=Ledger.normalizeCapitalTracking(db.meta?.capitalTracking),currentPnl=trackedCapitalPnl(compute(),profile);
+  const summary=Ledger.capitalSummary(db,currentPnl),type=$('capitalEventType').value,source=$('capitalEventSource').value;
+  const amount=N($('capitalEventAmount').value),date=$('capitalEventDate').value,note=$('capitalEventNote').value.trim();
+  if(!summary.configured)throw Error('請先完成並啟用期初資金來源設定');
+  if(!date||amount<=0)throw Error('請確認日期與金額');
+  if(type==='IN'&&source==='proRata')throw Error('新增投入必須選擇信貸、自有或家庭贊助');
+  if(Date.parse(date)<Date.parse(profile.resetDate))throw Error('資金異動不可早於重置日');
+  const latest=profile.events.reduce((max,event)=>Math.max(max,Date.parse(event.date)),Date.parse(profile.resetDate));
+  if(Date.parse(date)<latest)throw Error('請依發生順序新增；日期不可早於既有資金異動');
+  if(!Number.isFinite(currentPnl))throw Error('目前投資損益不完整，請先更新行情');
+  if(type==='OUT'){
+   const available=source==='proRata'?summary.sourceTotal:summary.values[source];
+   if(amount>available+1e-7)throw Error('提領金額超過目前可分配份額');
+  }
+  const id=globalThis.crypto?.randomUUID?crypto.randomUUID():'capital-'+Date.now();
+  const next=JSON.parse(JSON.stringify(db));next.meta.capitalTracking.events.push({id,date,type,source,amount,pnlCheckpointTwd:currentPnl,note});
+  commitDb(next);e.target.reset();$('capitalEventDate').value=new Date().toISOString().slice(0,10);$('capitalEventType').value='IN';$('capitalEventSource').value='self';alert('投資資金異動已記錄；買賣股票仍不需要選來源。');
+ }catch(err){alert(err.message)}
+};
+$('capitalEventTable').addEventListener('click',e=>{
+ const button=e.target.closest('[data-delete-capital]');if(!button)return;
+ if(!confirm('刪除這筆資金異動會重算後續分攤，確定？'))return;
+ try{const next=JSON.parse(JSON.stringify(db));next.meta.capitalTracking.events=next.meta.capitalTracking.events.filter(event=>event.id!==button.dataset.deleteCapital);commitDb(next)}catch(err){alert(err.message)}
+});
+
+function renderAll(){const c=compute();$('dataWarnings').textContent=c.issues.join('；')||'資料正常｜'+db.transactions.length+' 筆股票交易・'+db.manualTrades.length+' 筆其他歷史交易';$('dataWarnings').classList.toggle('has-warning',c.issues.length>0);renderDash(c);renderTx();renderPos(c);renderPerf(c);renderManualTrades();renderQuotes();renderCash();renderCapitalSettings(c);if($('fxDash'))$('fxDash').innerHTML=db.meta?.currentUsdTwd?`USD/TWD <b>${F(db.meta.currentUsdTwd,4)}</b><span>更新 ${db.meta.fxUpdated?new Date(db.meta.fxUpdated).toLocaleString('zh-TW'):'—'}・歷史成交匯率不變</span>`:'USD/TWD 尚未成功更新；歷史成交匯率保持不變。'}
 $('perfMarket').onchange=()=>renderAll();
 $('txTable').addEventListener('click',e=>{const b=e.target.closest('[data-delete-tx]');if(b)window.delTx(b.dataset.deleteTx)});
 $('quoteTable').addEventListener('click',e=>{const b=e.target.closest('[data-delete-quote]');if(b)window.delQ(b.dataset.deleteQuote)});
 $('asset').addEventListener('change',()=>{if($('asset').value==='台股'){$('currency').value='TWD';$('fx').value=1;}});
 $('qTicker').addEventListener('input',()=>{$('qFx').value=/^\d{4,6}$/.test($('qTicker').value.trim())?1:(db.meta?.currentUsdTwd||1)});
-$('restoreJson').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const currentPlan=Ledger.normalizeFundPlan(db.meta?.fundPlan),next=Ledger.applyPolicy(JSON.parse(await f.text()),currentPlan);const c=Ledger.compute(next);if(c.issues.length)throw Error(c.issues.join('\n'));if(!confirm('完整還原將取代目前交易、歷史交易與行情。\n鎖定資金配置與分類規則會保留。\n還原檔：'+next.transactions.length+' 筆股票、'+next.manualTrades.length+' 筆歷史。\n請先匯出現有備份。確定？'))return;snapshot();localStorage.setItem(KEY,JSON.stringify(next));db=next;storageBlocked=false;renderAll();alert('完整還原完成；資金配置仍保持鎖定。');}catch(err){alert('未還原：'+err.message)}finally{e.target.value='';}};
+$('restoreJson').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const currentPlan=Ledger.normalizeFundPlan(db.meta?.fundPlan),currentCapital=Ledger.normalizeCapitalTracking(db.meta?.capitalTracking),parsed=JSON.parse(await f.text());parsed.meta=parsed.meta&&typeof parsed.meta==='object'?parsed.meta:{};parsed.meta.capitalTracking=currentCapital;const next=Ledger.applyPolicy(parsed,currentPlan);const c=Ledger.compute(next);if(c.issues.length)throw Error(c.issues.join('\n'));if(!confirm('完整還原將取代目前交易、歷史交易與行情。\n鎖定資金配置與分類規則會保留。\n還原檔：'+next.transactions.length+' 筆股票、'+next.manualTrades.length+' 筆歷史。\n請先匯出現有備份。確定？'))return;snapshot();localStorage.setItem(KEY,JSON.stringify(next));db=next;storageBlocked=false;renderAll();alert('完整還原完成；資金配置仍保持鎖定。');}catch(err){alert('未還原：'+err.message)}finally{e.target.value='';}};
 
+$('capitalEventDate').value=new Date().toISOString().slice(0,10);
 renderAll();
 if(db.meta?.currentUsdTwd&&$('currency').value==='USD')$('fx').value=Number(db.meta.currentUsdTwd).toFixed(4);
 setTimeout(()=>!storageBlocked&&refreshAllQuotes(false),900);

@@ -1,9 +1,11 @@
-/* Stock Ledger 6.6.1 — pure accounting, portfolio policy and atomic import planning. */
+/* Stock Ledger 6.7.0 — accounting, locked portfolio policy and source-of-capital tracking. */
 (function(root){
   'use strict';
-  const VERSION='6.6.1';
+  const VERSION='6.7.0';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
+  const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
+  const DEFAULT_CAPITAL_TRACKING=Object.freeze({enabled:false,scope:'investment-only',resetDate:'',openingLoan:0,openingSelf:0,openingFamily:0,loanGross:0,loanFee:0,principalRepaid:0,interestPaid:0,otherPnlTwd:0,pnlBaselineTwd:0,events:[]});
   const clone = x => JSON.parse(JSON.stringify(x));
   const finite = x => typeof x === 'number' && Number.isFinite(x);
   const has = x => x !== null && x !== undefined;
@@ -18,11 +20,40 @@
     const amount=(key,fallback)=>finite(Number(p[key]))&&Number(p[key])>=0?Number(p[key]):fallback;
     return {longTerm:amount('longTerm',DEFAULT_FUND_PLAN.longTerm),swing:amount('swing',DEFAULT_FUND_PLAN.swing),loan:amount('loan',DEFAULT_FUND_PLAN.loan),reserve:amount('reserve',DEFAULT_FUND_PLAN.reserve),locked:true};
   }
+  function normalizeCapitalTracking(profile){
+    const p=profile&&typeof profile==='object'&&!Array.isArray(profile)?profile:{};
+    const number=(key,{signed=false}={})=>{
+      if(!own(p,key)||p[key]===null||p[key]==='')return 0;
+      const value=Number(p[key]);
+      if(!finite(value)||(!signed&&value<0))throw Error('資金來源設定 '+key+' 格式錯誤');
+      return value;
+    };
+    const resetDate=String(p.resetDate||'');
+    if(resetDate&&!Number.isFinite(Date.parse(resetDate)))throw Error('資金來源重置日錯誤');
+    const events=Array.isArray(p.events)?p.events.map((raw,index)=>{
+      if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('資金異動 '+(index+1)+' 格式錯誤');
+      const type=String(raw.type||''),source=String(raw.source||''),date=String(raw.date||''),amount=Number(raw.amount),checkpoint=Number(raw.pnlCheckpointTwd);
+      if(!['IN','OUT'].includes(type))throw Error('資金異動 '+(index+1)+' 類型錯誤');
+      if(![...CAPITAL_SOURCE_KEYS,'proRata'].includes(source)||(type==='IN'&&source==='proRata'))throw Error('資金異動 '+(index+1)+' 來源錯誤');
+      if(!date||!Number.isFinite(Date.parse(date)))throw Error('資金異動 '+(index+1)+' 日期錯誤');
+      if(!finite(amount)||amount<=0)throw Error('資金異動 '+(index+1)+' 金額錯誤');
+      if(!finite(checkpoint))throw Error('資金異動 '+(index+1)+' 缺少損益切點');
+      const id=String(raw.id||['capital',date,type,source,amount,index].join('-'));
+      return {id,date,type,source,amount,pnlCheckpointTwd:checkpoint,note:String(raw.note||'')};
+    }):[];
+    return {
+      enabled:Boolean(p.enabled),scope:'investment-only',resetDate,
+      openingLoan:number('openingLoan'),openingSelf:number('openingSelf'),openingFamily:number('openingFamily'),
+      loanGross:number('loanGross'),loanFee:number('loanFee'),principalRepaid:number('principalRepaid'),interestPaid:number('interestPaid'),
+      otherPnlTwd:number('otherPnlTwd',{signed:true}),pnlBaselineTwd:number('pnlBaselineTwd',{signed:true}),events
+    };
+  }
   function applyPolicy(data,fundPlan){
     const d=clone(data);
     d.meta=d.meta&&typeof d.meta==='object'&&!Array.isArray(d.meta)?d.meta:{};
     d.transactions=Array.isArray(d.transactions)?d.transactions.map(t=>({...t,account:classifyAccount(t.ticker)})):d.transactions;
     d.meta.fundPlan=normalizeFundPlan(fundPlan??d.meta.fundPlan);
+    d.meta.capitalTracking=normalizeCapitalTracking(d.meta.capitalTracking);
     d.meta.accountPolicy={longTermTickers:[...LONG_TERM_TICKERS],fallback:'波段',locked:true};
     d.meta.appVersion=VERSION;
     return validate(d);
@@ -57,6 +88,12 @@
       for(const k of ['qty','entry','exit'])if(!finite(t[k])||t[k]<=0)throw Error('歷史交易 '+k+' 錯誤');
       for(const k of ['pnl','returnPct','priceReturnPct','rMultiple'])if(has(t[k])&&!finite(t[k]))throw Error('歷史交易 '+k+' 錯誤');
       if(t.id){if(manualIds.has(t.id))throw Error('歷史交易重複 ID');manualIds.add(t.id);}
+    }
+    d.meta.capitalTracking=normalizeCapitalTracking(d.meta.capitalTracking);
+    const capitalIds=new Set();
+    for(const [i,e] of d.meta.capitalTracking.events.entries()){
+      if(capitalIds.has(e.id))throw Error('資金異動 '+(i+1)+' 重複 ID');
+      capitalIds.add(e.id);
     }
     for(const v of Object.values(d.cash))if(!finite(v))throw Error('資金池必須為數字');
     for(const q of Object.values(d.quotes))if(!q||!finite(q.price)||q.price<=0||!finite(q.fx)||q.fx<=0)throw Error('行情價格或匯率錯誤');
@@ -136,6 +173,48 @@
     }
     return {plan,buckets,totalPlan:plan.longTerm+plan.swing+plan.loan+plan.reserve,investmentPlan:plan.longTerm+plan.swing,protectedPlan:plan.loan+plan.reserve};
   }
+  function capitalSummary(data,currentPnlTwd){
+    const profile=normalizeCapitalTracking(data?.meta?.capitalTracking),issues=[];
+    const values={loan:profile.openingLoan,self:profile.openingSelf,family:profile.openingFamily};
+    const attributedPnl={loan:0,self:0,family:0};
+    const openingTotal=CAPITAL_SOURCE_KEYS.reduce((sum,key)=>sum+values[key],0);
+    const allocate=delta=>{
+      if(!finite(delta)){if(!issues.includes('目前投資損益不完整，暫停來源分攤'))issues.push('目前投資損益不完整，暫停來源分攤');return;}
+      const total=CAPITAL_SOURCE_KEYS.reduce((sum,key)=>sum+values[key],0);
+      if(Math.abs(delta)<1e-12)return;
+      if(!(total>0)){issues.push('資金來源本金為 0，無法分攤損益');return;}
+      for(const key of CAPITAL_SOURCE_KEYS){
+        const gain=delta*values[key]/total;
+        attributedPnl[key]+=gain;
+        values[key]+=gain;
+      }
+    };
+    let previousPnl=profile.pnlBaselineTwd;
+    const events=profile.events.map((event,index)=>({...event,index})).sort((a,b)=>Date.parse(a.date)-Date.parse(b.date)||a.index-b.index);
+    for(const event of events){
+      allocate(event.pnlCheckpointTwd-previousPnl);
+      previousPnl=event.pnlCheckpointTwd;
+      if(event.type==='IN')values[event.source]+=event.amount;
+      else if(event.source==='proRata'){
+        const total=CAPITAL_SOURCE_KEYS.reduce((sum,key)=>sum+values[key],0);
+        if(event.amount>total+1e-7)issues.push(event.date+'：按比例提領超過投資池份額');
+        if(total>0)for(const key of CAPITAL_SOURCE_KEYS)values[key]-=event.amount*values[key]/total;
+      }else{
+        if(event.amount>values[event.source]+1e-7)issues.push(event.date+'：提領超過該來源份額');
+        values[event.source]-=event.amount;
+      }
+    }
+    allocate(currentPnlTwd-previousPnl);
+    const sourceTotal=CAPITAL_SOURCE_KEYS.reduce((sum,key)=>sum+values[key],0);
+    const ratios=Object.fromEntries(CAPITAL_SOURCE_KEYS.map(key=>[key,sourceTotal>0?values[key]/sourceTotal:NaN]));
+    const outstandingPrincipal=Math.max(0,profile.loanGross-profile.principalRepaid);
+    return {
+      profile,configured:profile.enabled&&Boolean(profile.resetDate)&&openingTotal>0,openingTotal,sourceTotal,values,ratios,attributedPnl,issues,
+      currentPnlTwd,trackedPnlTwd:finite(currentPnlTwd)?currentPnlTwd-profile.pnlBaselineTwd:NaN,
+      loanAttributedPnl:attributedPnl.loan,nonLoanAttributedPnl:attributedPnl.self+attributedPnl.family,
+      loanNetResult:attributedPnl.loan-profile.loanFee-profile.interestPaid,outstandingPrincipal
+    };
+  }
   function merge(current,incoming){
     const d=validate(current),src=validate(incoming),report={txAdded:0,txUpdated:0,txSkipped:0,manualAdded:0,manualUpdated:0,manualSkipped:0,changes:[]};
     for(const t of src.transactions){
@@ -171,7 +250,7 @@
     const aw=avg(wins),al=Math.abs(avg(losses));
     return {count:n,winRate:n?wins.length/n*100:NaN,avgWin:aw,avgLoss:al,payoff:al>0?aw/al:NaN,expectancy:avg(trades)};
   }
-  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,validate,compute,merge,stats,sameManual,manualKey,classifyAccount,normalizeFundPlan,applyPolicy,fundSummary,transactionValueTwd};
+  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,applyPolicy,fundSummary,capitalSummary,transactionValueTwd};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.Ledger=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

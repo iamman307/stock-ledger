@@ -1,3 +1,15 @@
+# 6.7.0
+
+- Added an optional investment-only capital-source ledger with loan, self-funded and family-funded shares.
+- First activation captures the current recorded investment P/L as a reset baseline; historical returns are not back-attributed.
+- New investment contributions and withdrawals crystallize P/L before changing source ratios, so individual stock trades never need a funding-source tag.
+- Added separate loan principal, principal repaid, interest and fee tracking plus loan-attributed and net leveraged results.
+- Daily spending accounts, living expenses and travel currency are explicitly excluded; only deliberate investment-pool entries are counted.
+- Capital-source settings remain device-local and are preserved during transaction JSON merge and full restore.
+- Added mobile dashboard and settings surfaces for source ratios, monthly self-funded contributions and audit history.
+
+Verification covers source attribution across cash-flow checkpoints, pro-rata withdrawals, metadata-preserving merge and UI runtime with synthetic data only.
+
 # 6.6.1
 
 - Fund availability estimates now equal allocation minus remaining cost plus recognized realized P/L, matching the dashboard's broker-first accounting basis.
