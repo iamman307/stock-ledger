@@ -1,3 +1,15 @@
+# 6.6.0
+
+- Locked the default TWD 2,000,000 plan into four separate allocations: 1,000,000 long-term, 700,000 swing, 100,000 loan-payment reserve and 200,000 breakable fixed deposit.
+- JSON merge and full restore preserve the live fund plan. Editing requires an explicit unlock; saving locks it again.
+- Enforced the confirmed account policy on existing, new and imported records: MU, QQQM and AVGO are long-term; every other ticker is swing.
+- Added a one-time pre-policy local backup before reclassifying existing device records.
+- Estimated available investment cash now starts from imported INIT/BUY/SELL cash flows. INIT occupies capital; sell proceeds return to the same pool. Loan and fixed-deposit reserves remain outside investment performance.
+- Rebuilt the overview as a mobile-first investment dashboard with allocation composition, long/swing pool cards, protected reserves, clearer valuation status and a fixed bottom navigation bar.
+- Updated release cache and PWA theme without changing the localStorage key.
+
+Verification: `node tests/ledger.test.cjs` and JavaScript syntax checks. Tests use synthetic records only.
+
 # 6.5.1
 
 - Integrated the 6.5 Taiwan quote behavior into the application; no service-worker HTML injection.

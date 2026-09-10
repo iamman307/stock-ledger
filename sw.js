@@ -1,6 +1,6 @@
-/* Stock Ledger 6.5.1: cache only this app's public release assets. */
-const CACHE='stock-ledger-v6-5-1-20260910';
-const ASSETS=['./index.html','./ledger.js?v=6.5.1','./app.js?v=6.5.1','./manifest.webmanifest'];
+/* Stock Ledger 6.6.0: locked fund policy and refreshed mobile dashboard. */
+const CACHE='stock-ledger-v6-6-0-20260910';
+const ASSETS=['./index.html','./ledger.js?v=6.6.0','./app.js?v=6.6.0','./manifest.webmanifest'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('stock-ledger-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{

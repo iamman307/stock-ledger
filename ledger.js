@@ -1,6 +1,9 @@
-/* Stock Ledger 6.5.1 — pure accounting and validated, atomic import planning. */
+/* Stock Ledger 6.6.0 — pure accounting, portfolio policy and atomic import planning. */
 (function(root){
   'use strict';
+  const VERSION='6.6.0';
+  const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
+  const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const clone = x => JSON.parse(JSON.stringify(x));
   const finite = x => typeof x === 'number' && Number.isFinite(x);
   const has = x => x !== null && x !== undefined;
@@ -9,6 +12,21 @@
   const manualKey = t => [t.ticker,t.direction,t.open,t.close,t.currency].join('|');
   const txKey = t => [positionKey(t),t.date,t.side,t.qty,t.price].join('|');
   const closeEnough = (a,b) => Math.abs(a-b)<=Math.max(1e-8,Math.abs(a)*1e-10);
+  const classifyAccount=ticker=>LONG_TERM_TICKERS.includes(String(ticker||'').trim().toUpperCase())?'長期':'波段';
+  function normalizeFundPlan(plan){
+    const p=plan&&typeof plan==='object'&&!Array.isArray(plan)?plan:{};
+    const amount=(key,fallback)=>finite(Number(p[key]))&&Number(p[key])>=0?Number(p[key]):fallback;
+    return {longTerm:amount('longTerm',DEFAULT_FUND_PLAN.longTerm),swing:amount('swing',DEFAULT_FUND_PLAN.swing),loan:amount('loan',DEFAULT_FUND_PLAN.loan),reserve:amount('reserve',DEFAULT_FUND_PLAN.reserve),locked:true};
+  }
+  function applyPolicy(data,fundPlan){
+    const d=clone(data);
+    d.meta=d.meta&&typeof d.meta==='object'&&!Array.isArray(d.meta)?d.meta:{};
+    d.transactions=Array.isArray(d.transactions)?d.transactions.map(t=>({...t,account:classifyAccount(t.ticker)})):d.transactions;
+    d.meta.fundPlan=normalizeFundPlan(fundPlan??d.meta.fundPlan);
+    d.meta.accountPolicy={longTermTickers:[...LONG_TERM_TICKERS],fallback:'波段',locked:true};
+    d.meta.appVersion=VERSION;
+    return validate(d);
+  }
   function sameManual(a,b){return manualKey(a)===manualKey(b)&&['entry','exit','qty','pnl'].every(k=>a[k]===b[k]||(finite(a[k])&&finite(b[k])&&closeEnough(a[k],b[k])));}
   function validate(data){
     if(!data||!Array.isArray(data.transactions))throw Error('缺少 transactions 陣列');
@@ -84,6 +102,36 @@
     }
     return {positions:[...positions.values()],realized,trades,issues};
   }
+  function transactionValueTwd(t){
+    if(has(t.settlementTwd)&&finite(t.settlementTwd))return Math.abs(t.settlementTwd);
+    const gross=t.qty*t.price,fees=(t.fee||0)+(t.tax||0);
+    return (t.side==='SELL'?Math.max(0,gross-fees):gross+fees)*t.fx;
+  }
+  function fundSummary(data,result){
+    const plan=normalizeFundPlan(data?.meta?.fundPlan),computed=result||compute(data);
+    const buckets={
+      '長期':{allocation:plan.longTerm,available:plan.longTerm,cost:0,marketValue:0,realized:0,missingQuotes:0,tickers:[]},
+      '波段':{allocation:plan.swing,available:plan.swing,cost:0,marketValue:0,realized:0,missingQuotes:0,tickers:[]}
+    };
+    for(const t of data.transactions){
+      const b=buckets[classifyAccount(t.ticker)],value=transactionValueTwd(t);
+      b.available+=t.side==='SELL'?value:-value;
+    }
+    for(const p of computed.positions.filter(x=>x.qty>0)){
+      const b=buckets[classifyAccount(p.ticker)],q=data.quotes[p.ticker];
+      b.cost+=p.costTwd;b.tickers.push(p.ticker);
+      if(q&&finite(q.price)&&q.price>0&&finite(q.fx)&&q.fx>0)b.marketValue+=p.qty*q.price*q.fx;
+      else b.missingQuotes++;
+    }
+    for(const t of computed.realized)buckets[classifyAccount(t.ticker)].realized+=t.pnlTwd;
+    for(const b of Object.values(buckets)){
+      b.tickers=[...new Set(b.tickers)];
+      b.equityKnown=b.available+b.marketValue;
+      b.netGainKnown=b.equityKnown-b.allocation;
+      b.usagePct=b.allocation?(b.allocation-b.available)/b.allocation*100:NaN;
+    }
+    return {plan,buckets,totalPlan:plan.longTerm+plan.swing+plan.loan+plan.reserve,investmentPlan:plan.longTerm+plan.swing,protectedPlan:plan.loan+plan.reserve};
+  }
   function merge(current,incoming){
     const d=validate(current),src=validate(incoming),report={txAdded:0,txUpdated:0,txSkipped:0,manualAdded:0,manualUpdated:0,manualSkipped:0,changes:[]};
     for(const t of src.transactions){
@@ -119,7 +167,7 @@
     const aw=avg(wins),al=Math.abs(avg(losses));
     return {count:n,winRate:n?wins.length/n*100:NaN,avgWin:aw,avgLoss:al,payoff:al>0?aw/al:NaN,expectancy:avg(trades)};
   }
-  const api={validate,compute,merge,stats,sameManual,manualKey};
+  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,validate,compute,merge,stats,sameManual,manualKey,classifyAccount,normalizeFundPlan,applyPolicy,fundSummary,transactionValueTwd};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.Ledger=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
