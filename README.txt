@@ -1,38 +1,11 @@
-﻿股票記帳 App v6.4｜免 Token 行情快照＋安全資料修正
-===================================================
+股票記帳 App v6.5.1
+=====================
+完整更新說明請閱讀 README.md 與 CHANGELOG.md。
 
-行情：
-- 不需要 MarketData API Token。
-- 不需要 Vercel。
-- GitHub Actions 每 30 分鐘由伺服器端抓 Yahoo Finance。
-- 行情寫入 quotes-data branch 的 quotes.json。
-- App 從 raw.githubusercontent.com 讀最新快照，避免 Yahoo browser CORS。
-- 按「讀取最新行情」只讀快照，不會消耗第三方 API credits。
-- 行情用途為投資記帳與資產估值，不是即時下單報價；GitHub 排程可能延遲。
-
-JSON 匯入：
-- 同 transaction id：更新/修正該筆，不再只是略過。
-- 不同 id 但經濟欄位完全相同：去重略過。
-- 新交易：加入。
-- 匯入前仍會保留 pre-import snapshot。
-- 不覆蓋手機已存在的非零資金池。
-
-Binance：
-- 保留 Binance CSV 自動匯入＋去重。
-
-公開安全：
-- GitHub app code 不包含私人交易、持倉數量或資金。
-- 行情清單 symbols.txt 只有股票代號，不包含持有數量。
-
-行情清單：
-QQQM
-AVGO
-MU
-TSLA
-PGR
-POWR
-PRGS
-CAT
-VOO
-XLV
-JPM
+先匯出完整備份，再更新 App；不要清除網站儲存資料。
+本版直接載入 ledger.js 與 app.js，不再透過 Service Worker 注入補丁。
+合併匯入先驗證與預覽；完整還原會取代交易、歷史交易、資金池與行情。
+券商整輪損益需標記 brokerPnlScope=position，僅用於最後平倉。
+台股稅費納入計算；TWD 行情匯率為 1；缺失 ROI 顯示 N/A。
+程式升級不會自動更改既有交易。
+GitHub 只放程式與公開行情，私人交易 JSON 不得上傳。

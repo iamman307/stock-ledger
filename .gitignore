@@ -1,0 +1,8 @@
+# Private financial files must never enter this public repository.
+stock-ledger-*.json
+*交易*.json
+*.csv
+*.pdf
+upload/
+.sites-runtime/
+node_modules/
