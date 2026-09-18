@@ -38,8 +38,12 @@ test('manual dedupe tolerates harmless price rounding',()=>{
 });
 test('schema rejects duplicate IDs, wrong TWD FX and nonnumeric quantities',()=>{for(const change of [d=>d.transactions.push(d.transactions[0]),d=>d.transactions[0].fx=30,d=>d.transactions[0].qty='1']){const d=empty();d.transactions=[tx('a','BUY',1,100)];change(d);assert.throws(()=>L.validate(d));}});
 test('expectancy includes break-even and works for all wins',()=>{near(L.stats([{realizedTwd:1,returnPct:10},{realizedTwd:0,returnPct:0}]).expectancy,5);near(L.stats([{realizedTwd:1,returnPct:10}]).expectancy,10);});
+test('combined strategy stats count trades without inventing missing ROI',()=>{
+ const s=L.stats([{realizedTwd:10,returnPct:2},{realizedTwd:-5,returnPct:-1},{realizedTwd:3,returnPct:NaN}]);
+ assert.equal(s.count,3);assert.equal(s.returnCount,2);near(s.winRate,200/3);near(s.avgWin,2);near(s.avgLoss,1);near(s.payoff,2);near(s.expectancy,.5);
+});
 test('UI script executes with empty state; CSV missing ROI is null',()=>{
- const elems=new Map();const get=id=>{if(!elems.has(id))elems.set(id,{value:id==='perfMarket'?'all':'',addEventListener(){},innerHTML:'',textContent:'',style:{},classList:{add(){},remove(){},toggle(){}},reset(){}});return elems.get(id);};
+ const elems=new Map();const get=id=>{if(!elems.has(id))elems.set(id,{value:id==='perfScope'?'stock':'',hidden:false,addEventListener(){},innerHTML:'',textContent:'',style:{},classList:{add(){},remove(){},toggle(){}},reset(){}});return elems.get(id);};
  const storage=new Map();const ctx={Ledger:L,console,document:{getElementById:get,querySelectorAll:()=>[],addEventListener(){}},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},setTimeout(){},setInterval(){},navigator:{},location:{protocol:'file:'},alert(){},confirm:()=>true};ctx.window=ctx;
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(require.resolve('../app.js'),'utf8'),ctx);
  const t=vm.runInContext(`binanceRowToTrade({'符號':'TEST','倉位方向':'LONG','已開啟':'2026-01-01 09:00:00','已關閉':'2026-01-02 09:00:00','進場價格':'100','平均收盤價':'110','已平倉交易量':'1','平倉盈虧':'10'})`,ctx);

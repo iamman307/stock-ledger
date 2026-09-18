@@ -1,3 +1,14 @@
+# 6.8.0
+
+- Added one performance-scope selector for stock swings, USD/TWD stock subsets, derivatives/grid strategies and all strategies.
+- Combined scope counts every complete strategy while keeping TWD and USDT monetary totals separate.
+- Win rate uses every closed strategy with a known result; average return, Payoff and Expectancy use only records with an explicit platform/strategy return, so missing ROI is never silently treated as zero.
+- The performance page now explains why stock transaction fills and completed strategy samples have different counts.
+- Grid modes render as neutral, long or long/upward-trailing instead of exposing the compatibility-only LONG schema value.
+- Stock fund pools, source-of-capital attribution and dashboard TWD results remain stock-only.
+
+Verification covers missing-ROI combined statistics, application runtime, ledger calculations and browser rendering with synthetic device data.
+
 # 6.7.1
 
 - Added a dedicated device-only private capital-settings import. It changes only the capital-source profile and never transactions, quotes or the locked fund plan.

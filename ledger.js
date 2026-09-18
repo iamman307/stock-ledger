@@ -1,7 +1,7 @@
-/* Stock Ledger 6.7.1 — accounting, locked portfolio policy and source-of-capital tracking. */
+/* Stock Ledger 6.8.0 — accounting, locked portfolio policy and unified strategy statistics. */
 (function(root){
   'use strict';
-  const VERSION='6.7.1';
+  const VERSION='6.8.0';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
@@ -254,10 +254,12 @@
     return {db:checked,report};
   }
   function stats(trades){
-    const wins=trades.filter(t=>t.realizedTwd>0),losses=trades.filter(t=>t.realizedTwd<0),n=trades.length;
+    const completed=trades.filter(t=>finite(t.realizedTwd));
+    const rated=completed.filter(t=>finite(t.returnPct));
+    const wins=completed.filter(t=>t.realizedTwd>0),ratedWins=rated.filter(t=>t.realizedTwd>0),ratedLosses=rated.filter(t=>t.realizedTwd<0);
     const avg=a=>a.length?a.reduce((s,t)=>s+t.returnPct,0)/a.length:NaN;
-    const aw=avg(wins),al=Math.abs(avg(losses));
-    return {count:n,winRate:n?wins.length/n*100:NaN,avgWin:aw,avgLoss:al,payoff:al>0?aw/al:NaN,expectancy:avg(trades)};
+    const aw=avg(ratedWins),al=Math.abs(avg(ratedLosses));
+    return {count:completed.length,returnCount:rated.length,winRate:completed.length?wins.length/completed.length*100:NaN,avgWin:aw,avgLoss:al,payoff:al>0?aw/al:NaN,expectancy:avg(rated)};
   }
   const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,parseCapitalSetup,applyPolicy,fundSummary,capitalSummary,transactionValueTwd};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
