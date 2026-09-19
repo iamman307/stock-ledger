@@ -1,7 +1,7 @@
-/* Stock Ledger 6.8.0 — accounting, locked portfolio policy and unified strategy statistics. */
+/* Stock Ledger 6.8.1 — external holdings snapshots and unified strategy statistics. */
 (function(root){
   'use strict';
-  const VERSION='6.8.0';
+  const VERSION='6.8.1';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
@@ -70,8 +70,9 @@
   function sameManual(a,b){return manualKey(a)===manualKey(b)&&['entry','exit','qty','pnl'].every(k=>a[k]===b[k]||(finite(a[k])&&finite(b[k])&&closeEnough(a[k],b[k])));}
   function validate(data){
     if(!data||!Array.isArray(data.transactions))throw Error('缺少 transactions 陣列');
-    const d=clone(data); d.manualTrades=d.manualTrades??[];d.cash=d.cash??{};d.quotes=d.quotes??{};d.meta=d.meta??{};
+    const d=clone(data); d.manualTrades=d.manualTrades??[];d.externalHoldings=d.externalHoldings??[];d.cash=d.cash??{};d.quotes=d.quotes??{};d.meta=d.meta??{};
     if(!Array.isArray(d.manualTrades))throw Error('manualTrades 必須是陣列');
+    if(!Array.isArray(d.externalHoldings))throw Error('externalHoldings 必須是陣列');
     for(const k of ['cash','quotes','meta'])if(!d[k]||Array.isArray(d[k])||typeof d[k]!=='object')throw Error(k+' 格式錯誤');
     const ids=new Set();
     for(const [i,t] of d.transactions.entries()){
@@ -97,6 +98,20 @@
       for(const k of ['qty','entry','exit'])if(!finite(t[k])||t[k]<=0)throw Error('歷史交易 '+k+' 錯誤');
       for(const k of ['pnl','returnPct','priceReturnPct','rMultiple'])if(has(t[k])&&!finite(t[k]))throw Error('歷史交易 '+k+' 錯誤');
       if(t.id){if(manualIds.has(t.id))throw Error('歷史交易重複 ID');manualIds.add(t.id);}
+    }
+    const holdingIds=new Set();
+    for(const [i,h] of d.externalHoldings.entries()){
+      const label='外部持倉 '+(i+1);
+      if(!h||typeof h!=='object'||Array.isArray(h))throw Error(label+' 格式錯誤');
+      for(const k of ['id','ticker','asset','venue','asOf','currency'])if(typeof h[k]!=='string'||!h[k].trim())throw Error(label+' 缺少 '+k);
+      if(holdingIds.has(h.id))throw Error(label+' 重複 ID');holdingIds.add(h.id);
+      if(!Number.isFinite(Date.parse(h.asOf)))throw Error(label+' 日期錯誤');
+      for(const k of ['qty','currentPrice'])if(!finite(h[k])||h[k]<0)throw Error(label+' '+k+' 格式錯誤');
+      for(const k of ['avgCost','fx','marketValueTwd','unrealizedTwd'])if(has(h[k])&&!finite(h[k]))throw Error(label+' '+k+' 必須是數字或 null');
+      if(has(h.avgCost)&&h.avgCost<0)throw Error(label+' avgCost 格式錯誤');
+      if(has(h.fx)&&h.fx<=0)throw Error(label+' fx 格式錯誤');
+      if(has(h.marketValueTwd)&&h.marketValueTwd<0)throw Error(label+' marketValueTwd 格式錯誤');
+      if(has(h.source)&&!CAPITAL_SOURCE_KEYS.includes(h.source))throw Error(label+' 資金來源錯誤');
     }
     d.meta.capitalTracking=normalizeCapitalTracking(d.meta.capitalTracking);
     const capitalIds=new Set();
@@ -225,7 +240,7 @@
     };
   }
   function merge(current,incoming){
-    const d=validate(current),src=validate(incoming),report={txAdded:0,txUpdated:0,txSkipped:0,manualAdded:0,manualUpdated:0,manualSkipped:0,changes:[]};
+    const d=validate(current),src=validate(incoming),report={txAdded:0,txUpdated:0,txSkipped:0,manualAdded:0,manualUpdated:0,manualSkipped:0,holdingAdded:0,holdingUpdated:0,holdingSkipped:0,changes:[]};
     for(const t of src.transactions){
       const idx=d.transactions.findIndex(x=>x.id===t.id);
       if(idx>=0){
@@ -247,6 +262,14 @@
       else if(d.manualTrades.some(x=>sameManual(x,t)))report.manualSkipped++;
       else if(d.manualTrades.some(x=>manualKey(x)===manualKey(t)))throw Error('歷史交易衝突：'+t.ticker+' '+t.open+'。請使用完整還原或穩定 ID 修正。');
       else{d.manualTrades.push(t);report.manualAdded++;}
+    }
+    for(const h of src.externalHoldings){
+      const idx=d.externalHoldings.findIndex(x=>x.id===h.id);
+      if(idx>=0){
+        const next={...d.externalHoldings[idx],...h};
+        if(JSON.stringify(next)!==JSON.stringify(d.externalHoldings[idx])){d.externalHoldings[idx]=next;report.holdingUpdated++;report.changes.push(h.ticker+' 外部持倉快照已更新');}
+        else report.holdingSkipped++;
+      }else{d.externalHoldings.push(h);report.holdingAdded++;}
     }
     // Import files cannot silently change live cash balances or quote snapshots.
     const checked=validate(d),result=compute(checked);

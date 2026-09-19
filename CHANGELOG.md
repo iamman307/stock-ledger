@@ -1,3 +1,9 @@
+# 6.8.1
+
+- Added a dedicated external/crypto holdings snapshot model. These holdings appear separately from stock positions and never inflate stock transaction or win-rate counts.
+- Merge imports can add or update stable external holding IDs without changing device-local fund plans, capital-source settings or quotes.
+- Legacy BTC can be shown with the platform cost and unrealized P/L while remaining an opening snapshot rather than a fabricated historical buy.
+
 # 6.8.0
 
 - Added one performance-scope selector for stock swings, USD/TWD stock subsets, derivatives/grid strategies and all strategies.

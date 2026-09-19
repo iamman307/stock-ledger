@@ -1,6 +1,6 @@
-/* Stock Ledger 6.8.0: unified stock, derivatives and grid strategy statistics. */
-const CACHE='stock-ledger-v6-8-0-20260918';
-const ASSETS=['./index.html','./ledger.js?v=6.8.0','./app.js?v=6.8.0','./manifest.webmanifest'];
+/* Stock Ledger 6.8.1: unified stock, derivatives and grid strategy statistics. */
+const CACHE='stock-ledger-v6-8-1-20260919';
+const ASSETS=['./index.html','./ledger.js?v=6.8.1','./app.js?v=6.8.1','./manifest.webmanifest'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('stock-ledger-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{

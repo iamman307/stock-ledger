@@ -1,4 +1,4 @@
-const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.8.0","publicSafe":true,"fundPlan":{"longTerm":1000000,"swing":700000,"loan":100000,"reserve":200000,"locked":true}}};let storageBlocked=false;let db;const storedRaw=localStorage.getItem(KEY);try{const parsed=JSON.parse(storedRaw||JSON.stringify(DEFAULT_DB));db=Ledger.applyPolicy(parsed);if(storedRaw&&JSON.stringify(parsed)!==JSON.stringify(db)){if(!localStorage.getItem(KEY+'-prepolicy-v6-6-0'))localStorage.setItem(KEY+'-prepolicy-v6-6-0',storedRaw);localStorage.setItem(KEY,JSON.stringify(db));}}catch(err){storageBlocked=true;db=Ledger.applyPolicy(DEFAULT_DB);setTimeout(()=>alert('資料無法讀取，原始資料未改動。請先匯出原始資料，再使用完整還原。'+err.message),0);}if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
+const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.8.1","publicSafe":true,"fundPlan":{"longTerm":1000000,"swing":700000,"loan":100000,"reserve":200000,"locked":true}}};let storageBlocked=false;let db;const storedRaw=localStorage.getItem(KEY);try{const parsed=JSON.parse(storedRaw||JSON.stringify(DEFAULT_DB));db=Ledger.applyPolicy(parsed);if(storedRaw&&JSON.stringify(parsed)!==JSON.stringify(db)){if(!localStorage.getItem(KEY+'-prepolicy-v6-6-0'))localStorage.setItem(KEY+'-prepolicy-v6-6-0',storedRaw);localStorage.setItem(KEY,JSON.stringify(db));}}catch(err){storageBlocked=true;db=Ledger.applyPolicy(DEFAULT_DB);setTimeout(()=>alert('資料無法讀取，原始資料未改動。請先匯出原始資料，再使用完整還原。'+err.message),0);}if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
 const $=id=>document.getElementById(id),N=x=>Number(x||0),F=(x,d=2)=>Number.isFinite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d}):'—',M=x=>Number.isFinite(x)?Math.round(x).toLocaleString('zh-TW'):'—',C=x=>x>0?'pos':x<0?'neg':'',D=s=>new Date(s),E=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function save(){if(storageBlocked)throw Error('資料讀取異常，禁止覆寫；請使用完整還原');db=Ledger.applyPolicy(db);localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
 function snapshot(){const raw=localStorage.getItem(KEY);if(raw){localStorage.setItem(KEY+'-preimport-backup',raw);let history=[];try{history=JSON.parse(localStorage.getItem(KEY+'-history')||'[]')}catch{};if(!Array.isArray(history))history=[];history.unshift({at:new Date().toISOString(),data:raw});localStorage.setItem(KEY+'-history',JSON.stringify(history.slice(0,5)));}}
@@ -108,6 +108,16 @@ function renderDash(c){
 }
 function renderTx(){const rows=[...db.transactions].sort((a,b)=>D(b.date)-D(a.date));$('txTable').innerHTML=`<thead><tr><th>日期</th><th>帳戶</th><th>代號</th><th>動作</th><th>數量</th><th>價格</th><th>費用</th><th>匯率</th><th>停損</th><th></th></tr></thead><tbody>`+(rows.length?rows.map(t=>`<tr><td>${E(t.date.replace('T',' '))}</td><td>${E(t.account)}</td><td>${E(t.ticker)}</td><td>${E(t.side)}</td><td>${F(t.qty,4)}</td><td>${F(t.price,4)}</td><td>${F(t.fee)}</td><td>${F(t.fx,4)}</td><td>${t.stop==null?'—':F(t.stop,4)}</td><td><button class="tiny danger" data-delete-tx="${E(t.id)}">刪除</button></td></tr>`).join(''):`<tr><td colspan="10" class="empty">尚無交易</td></tr>`)+`</tbody>`}window.delTx=id=>{if(confirm('確定刪除？')){const next=JSON.parse(JSON.stringify(db));next.transactions=next.transactions.filter(x=>x.id!==id);const issues=Ledger.compute(next).issues;if(issues.length)return alert('刪除會造成持股不足，未變更：'+issues.join('\n'));commitDb(next)}};$('clearAll').onclick=()=>{if(confirm('確定清空全部交易？')){const next=JSON.parse(JSON.stringify(db));next.transactions=[];commitDb(next)}};
 function renderPos(c){const ps=c.positions.filter(p=>p.qty>0);$('posTable').innerHTML=`<thead><tr><th>代號</th><th>帳戶</th><th>數量</th><th>平均成本</th><th>歷史有效匯率</th><th>現價</th><th>目前匯率</th><th>市值 TWD</th><th>未實現</th><th>股價影響</th><th>匯率影響</th><th>報酬率</th></tr></thead><tbody>`+(ps.length?ps.map(p=>{const avgB=p.costBase/p.qty,histFx=p.costBase?p.costTwd/p.costBase:NaN,q=db.quotes[p.ticker],baseNow=q?p.qty*q.price:NaN,mv=q?baseNow*q.fx:NaN,pnl=q?mv-p.costTwd:NaN,pricePnl=q&&Number.isFinite(histFx)?baseNow*histFx-p.costTwd:NaN,fxPnl=q&&Number.isFinite(histFx)?baseNow*(q.fx-histFx):NaN,ret=q&&p.costTwd?pnl/p.costTwd*100:NaN;return `<tr><td>${E(p.ticker)}</td><td>${E(p.account)}</td><td>${F(p.qty,4)}</td><td>${F(avgB,4)} ${E(p.currency)}</td><td>${Number.isFinite(histFx)?F(histFx,4):'—'}</td><td>${q?F(q.price,4):'—'}</td><td>${q?F(q.fx,4):'—'}</td><td>${M(mv)}</td><td class="${C(pnl)}">${M(pnl)}</td><td class="${C(pricePnl)}">${M(pricePnl)}</td><td class="${C(fxPnl)}">${M(fxPnl)}</td><td class="${C(ret)}">${Number.isFinite(ret)?F(ret,2)+'%':'—'}</td></tr>`}).join(''):`<tr><td colspan="12" class="empty">尚無持倉</td></tr>`)+`</tbody>`}
+function renderExternalHoldings(){
+ const rows=[...(db.externalHoldings||[])].sort((a,b)=>D(b.asOf)-D(a.asOf));
+ const labels={loan:'信貸',self:'自有',family:'家庭贊助'};
+ const el=$('externalHoldingTable');if(!el)return;
+ el.innerHTML='<thead><tr><th>資產</th><th>平台</th><th>數量</th><th>平均成本</th><th>快照價格</th><th>市值 TWD</th><th>未實現</th><th>資金註記</th><th>快照日</th></tr></thead><tbody>'+(rows.length?rows.map(h=>{
+  const market=Number.isFinite(h.marketValueTwd)?h.marketValueTwd:(Number.isFinite(h.fx)?h.qty*h.currentPrice*h.fx:NaN);
+  const pnl=Number.isFinite(h.unrealizedTwd)?h.unrealizedTwd:NaN;
+  return `<tr><td><b>${E(h.ticker)}</b><br><span class="muted">${E(h.asset)}</span></td><td>${E(h.venue)}</td><td>${F(h.qty,8)}</td><td>${Number.isFinite(h.avgCost)?F(h.avgCost,2)+' '+E(h.currency):'不可考'}</td><td>${F(h.currentPrice,2)} ${E(h.currency)}</td><td>${M(market)}</td><td class="${C(pnl)}">${Number.isFinite(pnl)?(pnl>=0?'+':'')+M(pnl):'不回推'}</td><td>${E(labels[h.source]||'未分類')}${h.legacy?'・歷史期初':''}</td><td>${E(h.asOf.slice(0,10))}</td></tr>`;
+ }).join(''):'<tr><td colspan="9" class="empty">尚無外部持倉；匯入快照後會顯示在這裡</td></tr>')+'</tbody>';
+}
 function renderPerf(c){
  const scope=$('perfScope').value;
  const stock=c.trades.filter(t=>scope==='stock-tw'?t.currency==='TWD':scope==='stock-us'?t.currency==='USD':true);
@@ -186,7 +196,7 @@ async function refreshAllQuotes(showAlert=false){
     }
 
     db.meta=db.meta||{};
-    db.meta.lastQuoteSnapshot=snapshot.updated||new Date().toISOString();db.meta.appVersion='6.8.0';
+    db.meta.lastQuoteSnapshot=snapshot.updated||new Date().toISOString();db.meta.appVersion='6.8.1';
     if(storageBlocked)throw Error('資料讀取異常，停止寫入行情');
     localStorage.setItem(KEY,JSON.stringify(db));
     renderAll();
@@ -343,7 +353,7 @@ function importBinanceRows(rows){
 
 $('importJson').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{
  const incoming=Ledger.applyPolicy(JSON.parse(await f.text()),db.meta.fundPlan),{db:next,report:r}=Ledger.merge(db,incoming);
- const msg='匯入預覽\n股票 新增 '+r.txAdded+' / 修正 '+r.txUpdated+' / 重複 '+r.txSkipped+'\n歷史 新增 '+r.manualAdded+' / 修正 '+r.manualUpdated+' / 重複 '+r.manualSkipped+'\n資金池、資金來源、行情保持手機原值\n'+r.changes.slice(0,15).join('\n');
+ const msg='匯入預覽\n股票 新增 '+r.txAdded+' / 修正 '+r.txUpdated+' / 重複 '+r.txSkipped+'\n歷史 新增 '+r.manualAdded+' / 修正 '+r.manualUpdated+' / 重複 '+r.manualSkipped+'\n外部持倉 新增 '+r.holdingAdded+' / 更新 '+r.holdingUpdated+' / 重複 '+r.holdingSkipped+'\n資金池、資金來源、行情保持手機原值\n'+r.changes.slice(0,15).join('\n');
  if(confirm(msg+'\n確認寫入？')){commitDb(next);alert('匯入完成，已保留還原快照');}
  }catch(err){alert('未匯入：'+err.message)}finally{e.target.value='';}};
 $('importBinanceCsv').onchange=async e=>{
@@ -384,6 +394,7 @@ function renderCash(){const p=Ledger.normalizeFundPlan(db.meta?.fundPlan);$('cas
 let capitalFormDirty=false;
 const sourceLabels={loan:'信貸',self:'自有',family:'家庭贊助',proRata:'按比例'};
 function renderCapitalSettings(c){
+ renderExternalHoldings();
  const profile=Ledger.normalizeCapitalTracking(db.meta?.capitalTracking),currentPnl=trackedCapitalPnl(c,profile),summary=Ledger.capitalSummary(db,currentPnl);
  if(!capitalFormDirty){
   $('capitalEnabled').checked=profile.enabled;$('capitalResetDate').value=profile.resetDate;

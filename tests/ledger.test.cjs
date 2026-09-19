@@ -36,6 +36,12 @@ test('manual dedupe tolerates harmless price rounding',()=>{
  const a={ticker:'TEST',direction:'LONG',open:'2026-01-01T09:00:00',close:'2026-01-02T09:00:00',currency:'USDT',qty:0.1,entry:12345.123456789,exit:12456.123456789,pnl:11.1,returnPct:null};
  const b={...a,entry:12345.123457,exit:12456.123457};assert.equal(L.sameManual(a,b),true);const d=empty();d.manualTrades=[a];const src=empty();src.manualTrades=[b];assert.equal(L.merge(d,src).report.manualSkipped,1);
 });
+test('external holdings merge by stable id and stay outside stock trades',()=>{
+ const d=empty();d.externalHoldings=[{id:'binance-btc-spot',ticker:'BTC',asset:'加密貨幣現貨',venue:'Binance',asOf:'2026-09-19T00:00:00+08:00',currency:'USDT',qty:.0375,avgCost:85000,currentPrice:81000,marketValueTwd:96500,unrealizedTwd:-4800,source:'self',legacy:true}];
+ const incoming=empty();incoming.externalHoldings=[{...d.externalHoldings[0],currentPrice:81200,marketValueTwd:96800}];
+ const m=L.merge(L.applyPolicy(d),L.applyPolicy(incoming));assert.equal(m.report.holdingUpdated,1);assert.equal(m.db.externalHoldings.length,1);assert.equal(m.db.externalHoldings[0].currentPrice,81200);assert.equal(L.compute(m.db).trades.length,0);
+ const twice=L.merge(m.db,L.applyPolicy(incoming));assert.equal(twice.report.holdingSkipped,1);
+});
 test('schema rejects duplicate IDs, wrong TWD FX and nonnumeric quantities',()=>{for(const change of [d=>d.transactions.push(d.transactions[0]),d=>d.transactions[0].fx=30,d=>d.transactions[0].qty='1']){const d=empty();d.transactions=[tx('a','BUY',1,100)];change(d);assert.throws(()=>L.validate(d));}});
 test('expectancy includes break-even and works for all wins',()=>{near(L.stats([{realizedTwd:1,returnPct:10},{realizedTwd:0,returnPct:0}]).expectancy,5);near(L.stats([{realizedTwd:1,returnPct:10}]).expectancy,10);});
 test('combined strategy stats count trades without inventing missing ROI',()=>{

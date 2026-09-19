@@ -1,10 +1,10 @@
-# Stock Ledger v6.8.0
+# Stock Ledger v6.8.1
 
 Device-local investment ledger. Static GitHub Pages app; GitHub Actions publishes public quote snapshots. No user portfolio data belongs in this repository, its tests, or its history.
 
 ## Update
 
-Export a full JSON backup before updating. Open the existing Pages address and reload when the update prompt appears. The page must show v6.8.0. Never clear site storage to force an upgrade.
+Export a full JSON backup before updating. Open the existing Pages address and reload when the update prompt appears. The page must show v6.8.1. Never clear site storage to force an upgrade.
 
 The existing `stock-ledger-v2-preloaded` storage key is preserved. v6.7.0 applies the confirmed account policy once: MU, QQQM and AVGO are long-term; all other tickers are swing. The prior device data is retained in `stock-ledger-v2-preloaded-prepolicy-v6-6-0` before that migration. Use **合併匯入 JSON** for additive/corrective updates with stable IDs; use **完整還原 JSON** only for a verified complete backup that should replace all existing data. Both routes validate before writing and retain a prior snapshot.
 
@@ -14,7 +14,9 @@ v6.7.0 adds an optional device-local capital-source ledger. It is explicitly inv
 
 v6.7.1 adds **匯入私人資金設定** for a separately delivered setup JSON. The file is read only by the current browser and updates only the capital-source profile after an on-screen preview. It does not modify trades, quotes or the locked plan. The excluded-living-funds value is informational because opening source shares are already net of that exclusion; the app does not subtract it again. Personal amounts must remain outside this public repository.
 
-v6.8.0 unifies performance navigation without mixing account currencies. The performance scope can show stock swings, contracts/grids or all complete strategies. Complete-strategy counts and win rate include closed manual history; return-based averages include only records with a known platform/strategy ROI. TWD stock fund pools and USDT derivative results remain financially separate.
+v6.8.1 unifies performance navigation without mixing account currencies. The performance scope can show stock swings, contracts/grids or all complete strategies. Complete-strategy counts and win rate include closed manual history; return-based averages include only records with a known platform/strategy ROI. TWD stock fund pools and USDT derivative results remain financially separate.
+
+External/crypto holdings use independent snapshots. They are displayed in Holdings but are not treated as stock fills, completed strategies or win-rate samples. A stable holding ID lets a later merge replace the last snapshot without duplicating the position. Legacy holdings may retain a platform-reported cost and unrealized P/L without inventing an unknowable purchase date.
 
 ## Development
 
