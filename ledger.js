@@ -1,7 +1,7 @@
-/* Stock Ledger 6.8.1 — external holdings snapshots and unified strategy statistics. */
+/* Stock Ledger 6.8.2 — mixed-source external holdings and net strategy results. */
 (function(root){
   'use strict';
-  const VERSION='6.8.1';
+  const VERSION='6.8.2';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
@@ -111,7 +111,7 @@
       if(has(h.avgCost)&&h.avgCost<0)throw Error(label+' avgCost 格式錯誤');
       if(has(h.fx)&&h.fx<=0)throw Error(label+' fx 格式錯誤');
       if(has(h.marketValueTwd)&&h.marketValueTwd<0)throw Error(label+' marketValueTwd 格式錯誤');
-      if(has(h.source)&&!CAPITAL_SOURCE_KEYS.includes(h.source))throw Error(label+' 資金來源錯誤');
+      if(has(h.source)&&![...CAPITAL_SOURCE_KEYS,'mixed'].includes(h.source))throw Error(label+' 資金來源錯誤');
     }
     d.meta.capitalTracking=normalizeCapitalTracking(d.meta.capitalTracking);
     const capitalIds=new Set();

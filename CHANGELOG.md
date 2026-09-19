@@ -1,3 +1,9 @@
+# 6.8.2
+
+- External cash can now be labelled as mixed-source instead of falsely assigning the whole balance to one funding source.
+- The holdings table can show a concise source breakdown while keeping funding transfers outside transaction performance.
+- Corrective imports may update stable historical strategy IDs from gross execution P/L to platform net P/L without duplicating samples.
+
 # 6.8.1
 
 - Added a dedicated external/crypto holdings snapshot model. These holdings appear separately from stock positions and never inflate stock transaction or win-rate counts.

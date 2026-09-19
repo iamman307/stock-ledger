@@ -42,6 +42,10 @@ test('external holdings merge by stable id and stay outside stock trades',()=>{
  const m=L.merge(L.applyPolicy(d),L.applyPolicy(incoming));assert.equal(m.report.holdingUpdated,1);assert.equal(m.db.externalHoldings.length,1);assert.equal(m.db.externalHoldings[0].currentPrice,81200);assert.equal(L.compute(m.db).trades.length,0);
  const twice=L.merge(m.db,L.applyPolicy(incoming));assert.equal(twice.report.holdingSkipped,1);
 });
+test('external cash may disclose mixed funding without becoming a trade',()=>{
+ const d=empty();d.externalHoldings=[{id:'cash',ticker:'USDT',asset:'加密資產現金',venue:'Binance',asOf:'2026-09-19',currency:'USDT',qty:1,currentPrice:1,marketValueTwd:31.8,source:'mixed',sourceSummary:'信貸與自有'}];
+ const p=L.applyPolicy(d);assert.equal(p.externalHoldings[0].source,'mixed');assert.equal(L.compute(p).trades.length,0);
+});
 test('schema rejects duplicate IDs, wrong TWD FX and nonnumeric quantities',()=>{for(const change of [d=>d.transactions.push(d.transactions[0]),d=>d.transactions[0].fx=30,d=>d.transactions[0].qty='1']){const d=empty();d.transactions=[tx('a','BUY',1,100)];change(d);assert.throws(()=>L.validate(d));}});
 test('expectancy includes break-even and works for all wins',()=>{near(L.stats([{realizedTwd:1,returnPct:10},{realizedTwd:0,returnPct:0}]).expectancy,5);near(L.stats([{realizedTwd:1,returnPct:10}]).expectancy,10);});
 test('combined strategy stats count trades without inventing missing ROI',()=>{
