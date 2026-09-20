@@ -1,7 +1,7 @@
-/* Stock Ledger 6.8.2 — mixed-source external holdings and net strategy results. */
+/* Stock Ledger 6.9.0 — mixed-source external holdings and net strategy results. */
 (function(root){
   'use strict';
-  const VERSION='6.8.2';
+  const VERSION='6.9.0';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
@@ -276,6 +276,26 @@
     if(result.issues.length)throw Error(result.issues.join('\n'));
     return {db:checked,report};
   }
+  // Monetary outcomes are grouped by denomination; zero outcomes remain samples.
+  function moneyStats(trades){
+    const groups=new Map();
+    for(const t of trades){
+      if(!finite(t.pnl)||typeof t.currency!=='string'||!t.currency.trim())continue;
+      const currency=t.currency.trim().toUpperCase();
+      if(!groups.has(currency))groups.set(currency,[]);
+      groups.get(currency).push(t.pnl);
+    }
+    return [...groups].map(([currency,values])=>{
+      const wins=values.filter(v=>v>0),losses=values.filter(v=>v<0);
+      const sum=a=>a.reduce((s,v)=>s+v,0);
+      const total=sum(values),average=total/values.length;
+      const avgWin=wins.length?sum(wins)/wins.length:NaN;
+      const avgLoss=losses.length?-sum(losses)/losses.length:NaN;
+      return {currency,count:values.length,wins:wins.length,losses:losses.length,
+        total,average,avgWin,avgLoss,payoff:avgLoss>0?avgWin/avgLoss:NaN,
+        normalized:avgLoss>0?average/avgLoss:NaN};
+    });
+  }
   function stats(trades){
     const completed=trades.filter(t=>finite(t.realizedTwd));
     const rated=completed.filter(t=>finite(t.returnPct));
@@ -284,7 +304,8 @@
     const aw=avg(ratedWins),al=Math.abs(avg(ratedLosses));
     return {count:completed.length,returnCount:rated.length,winRate:completed.length?wins.length/completed.length*100:NaN,avgWin:aw,avgLoss:al,payoff:al>0?aw/al:NaN,expectancy:avg(rated)};
   }
-  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,parseCapitalSetup,applyPolicy,fundSummary,capitalSummary,transactionValueTwd};
+  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,moneyStats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,parseCapitalSetup,applyPolicy,fundSummary,capitalSummary,transactionValueTwd};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.Ledger=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
+

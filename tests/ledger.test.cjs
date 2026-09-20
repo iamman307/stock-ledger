@@ -58,6 +58,14 @@ test('UI script executes with empty state; CSV missing ROI is null',()=>{
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(require.resolve('../app.js'),'utf8'),ctx);
  const t=vm.runInContext(`binanceRowToTrade({'符號':'TEST','倉位方向':'LONG','已開啟':'2026-01-01 09:00:00','已關閉':'2026-01-02 09:00:00','進場價格':'100','平均收盤價':'110','已平倉交易量':'1','平倉盈虧':'10'})`,ctx);
  assert.equal(t.returnPct,null);near(t.priceReturnPct,10);assert.ok(Number.isNaN(vm.runInContext("parseNum('')",ctx)));
+ vm.runInContext("db.manualTrades=[{ticker:'DEMO',currency:'USDT',pnl:12,returnPct:null}]",ctx);
+ ctx.demoTrades=[{ticker:'DEMO',currency:'USD',realizedTwd:900,returnPct:9,holdHours:24}];
+ get('perfScope').value='all';vm.runInContext('renderPerf({trades:demoTrades})',ctx);
+ assert.match(get('perfMoney').innerHTML,/已平倉金額 · TWD/);assert.match(get('perfMoney').innerHTML,/已平倉金額 · USDT/);
+ assert.match(get('perfMoney').innerHTML,/900.00/);assert.match(get('perfMoney').innerHTML,/12.00/);assert.doesNotMatch(get('perfMoney').innerHTML,/912.00/);
+ get('perfScope').value='stock-tw';vm.runInContext('renderPerf({trades:demoTrades})',ctx);assert.match(get('perfMoney').innerHTML,/尚無已平倉/);
+ get('perfScope').value='derivatives';vm.runInContext('renderPerf({trades:demoTrades})',ctx);assert.doesNotMatch(get('perfMoney').innerHTML,/TWD/);assert.match(get('perfMoney').innerHTML,/USDT/);
+
 });
 test('fund estimates reconcile broker P/L without rewriting cash flows',()=>{
  const d=empty();d.transactions=[tx('a','INIT',2,100),tx('b','SELL',1,120,{brokerPnlTwd:30})];d.quotes.TEST={price:110,fx:1};
@@ -84,4 +92,18 @@ test('private capital setup is validated and starts without imported P/L history
  const parsed=L.parseCapitalSetup(setup);assert.equal(parsed.openingTotal,1000);assert.equal(parsed.profile.excludedDailyTwd,80);assert.equal(parsed.profile.pnlBaselineTwd,0);assert.deepEqual(parsed.profile.events,[]);
  assert.throws(()=>L.parseCapitalSetup({...setup,kind:'wrong'}));assert.throws(()=>L.parseCapitalSetup({...setup,profile:{...setup.profile,principalRepaid:801}}));
 });
+test('money outcomes distinguish position size from percentage returns',()=>{
+ const [s]=L.moneyStats([{pnl:-1000,currency:'TWD'},{pnl:10000,currency:'TWD'}]);
+ assert.equal(s.average,4500);assert.equal(s.avgWin,10000);assert.equal(s.avgLoss,1000);assert.equal(s.payoff,10);assert.equal(s.normalized,4.5);
+});
+test('money outcomes separate currencies and retain break-even samples without ROI',()=>{
+ const groups=L.moneyStats([{pnl:300,currency:'TWD'},{pnl:-100,currency:'TWD'},{pnl:0,currency:'TWD'},{pnl:-5,currency:'USDT'},{pnl:NaN,currency:'TWD'}]);
+ assert.equal(groups.length,2);assert.equal(groups[0].count,3);near(groups[0].average,200/3);near(groups[0].normalized,2/3);assert.equal(groups[1].total,-5);
+ assert.ok(Number.isNaN(groups[1].payoff));assert.equal(groups[1].normalized,-1);
+});
+test('money outcomes handle empty, only wins, and only break-even records',()=>{
+ assert.deepEqual(L.moneyStats([]),[]);
+ for(const pnl of [0,100]){const [s]=L.moneyStats([{pnl,currency:'TWD'}]);assert.ok(Number.isNaN(s.avgLoss));assert.ok(Number.isNaN(s.payoff));assert.ok(Number.isNaN(s.normalized));}
+});
 console.log(`${tests} checks passed`);
+

@@ -1,4 +1,4 @@
-const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.8.2","publicSafe":true,"fundPlan":{"longTerm":1000000,"swing":700000,"loan":100000,"reserve":200000,"locked":true}}};let storageBlocked=false;let db;const storedRaw=localStorage.getItem(KEY);try{const parsed=JSON.parse(storedRaw||JSON.stringify(DEFAULT_DB));db=Ledger.applyPolicy(parsed);if(storedRaw&&JSON.stringify(parsed)!==JSON.stringify(db)){if(!localStorage.getItem(KEY+'-prepolicy-v6-6-0'))localStorage.setItem(KEY+'-prepolicy-v6-6-0',storedRaw);localStorage.setItem(KEY,JSON.stringify(db));}}catch(err){storageBlocked=true;db=Ledger.applyPolicy(DEFAULT_DB);setTimeout(()=>alert('資料無法讀取，原始資料未改動。請先匯出原始資料，再使用完整還原。'+err.message),0);}if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
+const KEY='stock-ledger-v2-preloaded';const DEFAULT_DB={"transactions":[],"manualTrades":[],"quotes":{},"cash":{"長期":0,"波段":0,"loan":0,"reserve":0},"meta":{"appVersion":"6.9.0","publicSafe":true,"fundPlan":{"longTerm":1000000,"swing":700000,"loan":100000,"reserve":200000,"locked":true}}};let storageBlocked=false;let db;const storedRaw=localStorage.getItem(KEY);try{const parsed=JSON.parse(storedRaw||JSON.stringify(DEFAULT_DB));db=Ledger.applyPolicy(parsed);if(storedRaw&&JSON.stringify(parsed)!==JSON.stringify(db)){if(!localStorage.getItem(KEY+'-prepolicy-v6-6-0'))localStorage.setItem(KEY+'-prepolicy-v6-6-0',storedRaw);localStorage.setItem(KEY,JSON.stringify(db));}}catch(err){storageBlocked=true;db=Ledger.applyPolicy(DEFAULT_DB);setTimeout(()=>alert('資料無法讀取，原始資料未改動。請先匯出原始資料，再使用完整還原。'+err.message),0);}if(!Array.isArray(db.manualTrades))db.manualTrades=[];db.meta=db.meta||{};db.meta.symbolMap=db.meta.symbolMap||{};
 const $=id=>document.getElementById(id),N=x=>Number(x||0),F=(x,d=2)=>Number.isFinite(x)?x.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d}):'—',M=x=>Number.isFinite(x)?Math.round(x).toLocaleString('zh-TW'):'—',C=x=>x>0?'pos':x<0?'neg':'',D=s=>new Date(s),E=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function save(){if(storageBlocked)throw Error('資料讀取異常，禁止覆寫；請使用完整還原');db=Ledger.applyPolicy(db);localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
 function snapshot(){const raw=localStorage.getItem(KEY);if(raw){localStorage.setItem(KEY+'-preimport-backup',raw);let history=[];try{history=JSON.parse(localStorage.getItem(KEY+'-history')||'[]')}catch{};if(!Array.isArray(history))history=[];history.unshift({at:new Date().toISOString(),data:raw});localStorage.setItem(KEY+'-history',JSON.stringify(history.slice(0,5)));}}
@@ -124,7 +124,14 @@ function renderPerf(c){
  const derivatives=(db.manualTrades||[]).map(t=>({ticker:t.ticker,open:t.open,close:t.close,realizedTwd:t.pnl,returnPct:Number.isFinite(t.returnPct)?t.returnPct:NaN}));
  const selected=scope==='derivatives'?derivatives:scope==='all'?[...c.trades,...derivatives]:stock;
  const s=Ledger.stats(selected),sample=s.returnCount===s.count?s.count+' 筆':s.returnCount+' / '+s.count+' 筆';
- $('perfKpis').innerHTML=[['完整策略',s.count+' 筆'],['報酬樣本',sample],['勝率',F(s.winRate,1)+'%'],['平均獲利率',F(s.avgWin)+'%'],['平均虧損率',F(s.avgLoss)+'%'],['Payoff',F(s.payoff)+':1'],['Expectancy',F(s.expectancy)+'% / trade']].map(([label,value])=>'<div class="card kpi"><div class="label">'+label+'</div><div class="value">'+value+'</div></div>').join('');
+ $('perfKpis').innerHTML=[['完整策略',s.count+' 筆'],['報酬樣本',sample],['勝率',F(s.winRate,1)+'%'],['平均獲利率',F(s.avgWin)+'%'],['平均虧損率',F(s.avgLoss)+'%'],['報酬率盈虧比',Number.isFinite(s.payoff)?F(s.payoff)+':1':'—'],['平均單筆報酬率',F(s.expectancy)+'%']].map(([label,value])=>'<div class="card kpi"><div class="label">'+label+'</div><div class="value">'+value+'</div></div>').join('');
+ const moneyStock=(scope==='all'?c.trades:stock).map(t=>({pnl:t.realizedTwd,currency:'TWD'}));
+ const moneyOther=(db.manualTrades||[]).map(t=>({pnl:t.pnl,currency:t.currency}));
+ const groups=Ledger.moneyStats(scope==='derivatives'?moneyOther:scope==='all'?[...moneyStock,...moneyOther]:moneyStock);
+ const moneyCard=(label,value,sign)=>'<div class="card kpi"><div class="label">'+label+'</div><div class="value '+C(sign)+'">'+value+'</div></div>';
+ $('perfMoney').innerHTML=groups.length?groups.map(g=>'<article class="perf-money-group"><div class="section-title"><h2>已平倉金額 · '+E(g.currency)+'</h2><span class="pill">'+g.count+' 筆</span></div><div class="grid perf-money-grid">'+
+ moneyCard('平均單筆損益',F(g.average),g.average)+moneyCard('完整策略總損益',F(g.total),g.total)+moneyCard('金額盈虧比',Number.isFinite(g.payoff)?F(g.payoff)+':1':'—')+moneyCard('平均獲利金額',F(g.avgWin))+moneyCard('平均虧損金額',F(g.avgLoss))+'</div></article>').join(''):'<p class="card muted">尚無已平倉策略，完成交易後會顯示金額統計。</p>';
+ $('perfNormalized').innerHTML=groups.map(g=>'<p>'+E(g.currency)+'：標準化期望值 <b class="'+C(g.normalized)+'">'+(Number.isFinite(g.normalized)?F(g.normalized*100)+'%':'—（尚無虧損樣本）')+'</b></p>').join('');
  $('perfScopeNote').textContent=scope==='all'?'股票與合約策略合併計數；勝率依各筆損益方向，報酬統計只使用有平台報酬率的樣本。TWD 與 USDT 金額不直接相加。':scope==='derivatives'?'原油、BTC 合約與網格皆以完整平倉或結束一輪為一筆；缺少平台 ROI 的紀錄不硬猜報酬率。':'持有時間為第一筆買進至最後平倉的區間估算；分批成交不會灌水成多筆勝率樣本。';
  $('stockPerfSection').hidden=scope==='derivatives';
  $('manualPerfSection').hidden=scope.startsWith('stock');
@@ -196,7 +203,7 @@ async function refreshAllQuotes(showAlert=false){
     }
 
     db.meta=db.meta||{};
-    db.meta.lastQuoteSnapshot=snapshot.updated||new Date().toISOString();db.meta.appVersion='6.8.2';
+    db.meta.lastQuoteSnapshot=snapshot.updated||new Date().toISOString();db.meta.appVersion='6.9.0';
     if(storageBlocked)throw Error('資料讀取異常，停止寫入行情');
     localStorage.setItem(KEY,JSON.stringify(db));
     renderAll();
@@ -489,3 +496,4 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
     .then(reg=>{reg.update();navigator.serviceWorker.addEventListener('controllerchange',()=>{if(confirm('新版已就緒，重新載入？未儲存表單會清除，已儲存交易保留。'))location.reload();});})
     .catch(()=>{});
 }
+

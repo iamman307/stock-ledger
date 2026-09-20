@@ -1,10 +1,10 @@
-# Stock Ledger v6.8.2
+# Stock Ledger v6.9.0
 
 Device-local investment ledger. Static GitHub Pages app; GitHub Actions publishes public quote snapshots. No user portfolio data belongs in this repository, its tests, or its history.
 
 ## Update
 
-Export a full JSON backup before updating. Open the existing Pages address and reload when the update prompt appears. The page must show v6.8.2. Never clear site storage to force an upgrade.
+Export a full JSON backup before updating. Open the existing Pages address and reload when the update prompt appears. The page must show v6.9.0. Never clear site storage to force an upgrade.
 
 The existing `stock-ledger-v2-preloaded` storage key is preserved. v6.7.0 applies the confirmed account policy once: MU, QQQM and AVGO are long-term; all other tickers are swing. The prior device data is retained in `stock-ledger-v2-preloaded-prepolicy-v6-6-0` before that migration. Use **合併匯入 JSON** for additive/corrective updates with stable IDs; use **完整還原 JSON** only for a verified complete backup that should replace all existing data. Both routes validate before writing and retain a prior snapshot.
 
@@ -29,3 +29,8 @@ Run `node tests/ledger.test.cjs` and `node --check app.js` before publishing. Pu
 `symbols.txt` and `scripts/update_quotes.py` retain the existing Yahoo snapshot workflow. Quotes are for valuation, not order execution. USD conversion requires valid FX; TWD conversion is 1.
 
 Historical Git privacy cleanup is a separate operation requiring explicit authorization; this release does not rewrite history.
+
+
+### 金額績效（v6.9.0）
+
+績效頁先顯示完整已平倉策略的金額結果，再顯示百分比。股票使用既有 TWD 損益口徑，其他交易按紀錄幣別分組；全部策略不把 TWD 和 USDT 相加。零損益仍納入筆數，缺少 ROI 不影響金額統計。平均單筆損益為總損益除以筆數；標準化期望值為平均單筆損益除以平均虧損絕對值，不等於平均初始風險 R。計算不會排除極端虧損，也不會補估未記錄費用。

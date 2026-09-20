@@ -1,3 +1,10 @@
+## v6.9.0 — 2026-09-20
+
+- 績效頁新增按幣別分組的平均獲利／虧損金額、金額盈虧比、平均單筆損益與完整策略總損益。
+- 百分比指標改名為「報酬率盈虧比」與「平均單筆報酬率」，避免與金額績效混淆。
+- 新增可展開的計算說明與標準化期望值；無虧損樣本時不顯示虛假的零值。
+- 手機版突出平均單筆損益；保持既有交易資料與資金計算方式。
+
 # 6.8.2
 
 - External cash can now be labelled as mixed-source instead of falsely assigning the whole balance to one funding source.
@@ -80,3 +87,4 @@ Verification: `node tests/ledger.test.cjs` and JavaScript syntax checks. Tests u
 Verification: `node tests/ledger.test.cjs`. Tests use synthetic records only.
 
 Limitations: no cloud sync, automatic broker OCR, weighted holding-time engine, equity-curve drawdown, corporate actions, or bot-session editor. Broker reconciliation does not prove the completeness of source records. Private corrected backups must never be committed here.
+
