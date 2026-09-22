@@ -73,6 +73,10 @@ test('fund estimates reconcile broker P/L without rewriting cash flows',()=>{
  near(s.available,700000-100+30);near(s.cashFlowAvailable,700000-200+120);near(s.reconciliationAdjustment,10);near(s.netGainKnown,40);assert.equal(JSON.stringify(p),before);
  delete p.quotes.TEST;const missing=L.fundSummary(p).buckets['波段'];assert.equal(missing.missingQuotes,1);assert.ok(Number.isNaN(missing.equityKnown));
 });
+test('cash reconciliation adjustment stays outside locked allocation and performance',()=>{
+ const d=empty();d.meta.capitalTracking={cashAdjustmentTwd:41009};const f=L.fundSummary(L.applyPolicy(d));
+ assert.equal(f.totalPlan,2000000);assert.equal(f.investmentPlan,1700000);assert.equal(f.cashAdjustmentTwd,41009);assert.equal(f.investmentAvailable,1741009);
+});
 test('capital source tracking crystallizes P/L before new self capital',()=>{
  const d=empty();d.meta.capitalTracking={enabled:true,resetDate:'2026-09-10',openingLoan:800,openingSelf:200,openingFamily:0,loanGross:1000,loanFee:10,principalRepaid:100,interestPaid:20,pnlBaselineTwd:0,events:[{id:'fund-1',date:'2026-10-01',type:'IN',source:'self',amount:100,pnlCheckpointTwd:100,note:'salary'}]};
  const p=L.applyPolicy(d),s=L.capitalSummary(p,200);

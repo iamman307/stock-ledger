@@ -1,11 +1,11 @@
-/* Stock Ledger 6.9.0 — mixed-source external holdings and net strategy results. */
+/* Stock Ledger 6.9.1 — mixed-source external holdings and net strategy results. */
 (function(root){
   'use strict';
-  const VERSION='6.9.0';
+  const VERSION='6.9.1';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
-  const DEFAULT_CAPITAL_TRACKING=Object.freeze({enabled:false,scope:'investment-only',resetDate:'',openingLoan:0,openingSelf:0,openingFamily:0,loanGross:0,loanFee:0,principalRepaid:0,interestPaid:0,excludedDailyTwd:0,otherPnlTwd:0,pnlBaselineTwd:0,events:[]});
+  const DEFAULT_CAPITAL_TRACKING=Object.freeze({enabled:false,scope:'investment-only',resetDate:'',openingLoan:0,openingSelf:0,openingFamily:0,loanGross:0,loanFee:0,principalRepaid:0,interestPaid:0,excludedDailyTwd:0,cashAdjustmentTwd:0,otherPnlTwd:0,pnlBaselineTwd:0,events:[]});
   const clone = x => JSON.parse(JSON.stringify(x));
   const finite = x => typeof x === 'number' && Number.isFinite(x);
   const has = x => x !== null && x !== undefined;
@@ -45,7 +45,7 @@
       enabled:Boolean(p.enabled),scope:'investment-only',resetDate,
       openingLoan:number('openingLoan'),openingSelf:number('openingSelf'),openingFamily:number('openingFamily'),
       loanGross:number('loanGross'),loanFee:number('loanFee'),principalRepaid:number('principalRepaid'),interestPaid:number('interestPaid'),
-      excludedDailyTwd:number('excludedDailyTwd'),otherPnlTwd:number('otherPnlTwd',{signed:true}),pnlBaselineTwd:number('pnlBaselineTwd',{signed:true}),events
+      excludedDailyTwd:number('excludedDailyTwd'),cashAdjustmentTwd:number('cashAdjustmentTwd',{signed:true}),otherPnlTwd:number('otherPnlTwd',{signed:true}),pnlBaselineTwd:number('pnlBaselineTwd',{signed:true}),events
     };
   }
   function parseCapitalSetup(setup){
@@ -169,7 +169,7 @@
     return (t.side==='SELL'?Math.max(0,gross-fees):gross+fees)*t.fx;
   }
   function fundSummary(data,result){
-    const plan=normalizeFundPlan(data?.meta?.fundPlan),computed=result||compute(data);
+    const plan=normalizeFundPlan(data?.meta?.fundPlan),profile=normalizeCapitalTracking(data?.meta?.capitalTracking),computed=result||compute(data);
     const buckets={
       '長期':{allocation:plan.longTerm,available:plan.longTerm,cost:0,marketValue:0,realized:0,missingQuotes:0,tickers:[]},
       '波段':{allocation:plan.swing,available:plan.swing,cost:0,marketValue:0,realized:0,missingQuotes:0,tickers:[]}
@@ -195,7 +195,7 @@
       b.netGainKnown=b.equityKnown-b.allocation;
       b.usagePct=b.allocation?(b.allocation-b.available)/b.allocation*100:NaN;
     }
-    return {plan,buckets,totalPlan:plan.longTerm+plan.swing+plan.loan+plan.reserve,investmentPlan:plan.longTerm+plan.swing,protectedPlan:plan.loan+plan.reserve};
+    return {plan,buckets,totalPlan:plan.longTerm+plan.swing+plan.loan+plan.reserve,investmentPlan:plan.longTerm+plan.swing,protectedPlan:plan.loan+plan.reserve,cashAdjustmentTwd:profile.cashAdjustmentTwd,investmentAvailable:buckets['長期'].available+buckets['波段'].available+profile.cashAdjustmentTwd};
   }
   function capitalSummary(data,currentPnlTwd){
     const profile=normalizeCapitalTracking(data?.meta?.capitalTracking),issues=[];
