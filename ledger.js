@@ -1,11 +1,12 @@
-/* Stock Ledger 6.9.1 — mixed-source external holdings and net strategy results. */
+/* Stock Ledger 6.10.0 — bank cash snapshots, pending settlements and external funding. */
 (function(root){
   'use strict';
-  const VERSION='6.9.1';
+  const VERSION='6.10.0';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
   const DEFAULT_CAPITAL_TRACKING=Object.freeze({enabled:false,scope:'investment-only',resetDate:'',openingLoan:0,openingSelf:0,openingFamily:0,loanGross:0,loanFee:0,principalRepaid:0,interestPaid:0,excludedDailyTwd:0,cashAdjustmentTwd:0,otherPnlTwd:0,pnlBaselineTwd:0,events:[]});
+  const DEFAULT_SECURITIES_CASH=Object.freeze({enabled:false,asOf:'',accountBalanceTwd:0,reservedTwd:0,externalInvestmentTransfersTwd:0,pendingSettlements:[]});
   const clone = x => JSON.parse(JSON.stringify(x));
   const finite = x => typeof x === 'number' && Number.isFinite(x);
   const has = x => x !== null && x !== undefined;
@@ -48,6 +49,28 @@
       excludedDailyTwd:number('excludedDailyTwd'),cashAdjustmentTwd:number('cashAdjustmentTwd',{signed:true}),otherPnlTwd:number('otherPnlTwd',{signed:true}),pnlBaselineTwd:number('pnlBaselineTwd',{signed:true}),events
     };
   }
+  function normalizeSecuritiesCash(snapshot){
+    const s=snapshot&&typeof snapshot==='object'&&!Array.isArray(snapshot)?snapshot:{};
+    const enabled=Boolean(s.enabled),asOf=String(s.asOf||'');
+    if(asOf&&!Number.isFinite(Date.parse(asOf)))throw Error('證券戶快照日期錯誤');
+    const accountBalanceTwd=Number(s.accountBalanceTwd??0),reservedTwd=Number(s.reservedTwd??0),externalInvestmentTransfersTwd=Number(s.externalInvestmentTransfersTwd??0);
+    if(!finite(accountBalanceTwd)||accountBalanceTwd<0)throw Error('證券戶帳面餘額格式錯誤');
+    if(!finite(reservedTwd)||reservedTwd<0||reservedTwd>accountBalanceTwd)throw Error('證券戶圈存金額格式錯誤');
+    if(!finite(externalInvestmentTransfersTwd)||externalInvestmentTransfersTwd<0)throw Error('外部投資轉出格式錯誤');
+    const ids=new Set();
+    const pendingSettlements=(Array.isArray(s.pendingSettlements)?s.pendingSettlements:[]).map((raw,index)=>{
+      const label='待交割 '+(index+1);
+      if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error(label+' 格式錯誤');
+      const id=String(raw.id||''),date=String(raw.date||''),currency=String(raw.currency||'').toUpperCase();
+      const amount=Number(raw.amount),fx=currency==='TWD'?1:Number(raw.fx);
+      if(!id||ids.has(id))throw Error(label+' ID 缺少或重複');ids.add(id);
+      if(!date||!Number.isFinite(Date.parse(date)))throw Error(label+' 日期錯誤');
+      if(!currency||!finite(amount)||amount===0)throw Error(label+' 金額或幣別錯誤');
+      if(!finite(fx)||fx<=0)throw Error(label+' 匯率錯誤');
+      return {id,date,currency,amount,fx,ticker:String(raw.ticker||''),side:String(raw.side||''),note:String(raw.note||'')};
+    });
+    return {enabled,asOf,accountBalanceTwd,reservedTwd,externalInvestmentTransfersTwd,pendingSettlements};
+  }
   function parseCapitalSetup(setup){
     if(!setup||typeof setup!=='object'||Array.isArray(setup))throw Error('私人資金設定檔格式錯誤');
     if(setup.kind!=='stock-ledger-capital-setup'||Number(setup.schemaVersion)!==1)throw Error('這不是支援的私人資金設定檔');
@@ -63,6 +86,7 @@
     d.transactions=Array.isArray(d.transactions)?d.transactions.map(t=>({...t,account:classifyAccount(t.ticker)})):d.transactions;
     d.meta.fundPlan=normalizeFundPlan(fundPlan??d.meta.fundPlan);
     d.meta.capitalTracking=normalizeCapitalTracking(d.meta.capitalTracking);
+    d.meta.securitiesCash=normalizeSecuritiesCash(d.meta.securitiesCash);
     d.meta.accountPolicy={longTermTickers:[...LONG_TERM_TICKERS],fallback:'波段',locked:true};
     d.meta.appVersion=VERSION;
     return validate(d);
@@ -114,6 +138,7 @@
       if(has(h.source)&&![...CAPITAL_SOURCE_KEYS,'mixed'].includes(h.source))throw Error(label+' 資金來源錯誤');
     }
     d.meta.capitalTracking=normalizeCapitalTracking(d.meta.capitalTracking);
+    d.meta.securitiesCash=normalizeSecuritiesCash(d.meta.securitiesCash);
     const capitalIds=new Set();
     for(const [i,e] of d.meta.capitalTracking.events.entries()){
       if(capitalIds.has(e.id))throw Error('資金異動 '+(i+1)+' 重複 ID');
@@ -168,6 +193,24 @@
     const gross=t.qty*t.price,fees=(t.fee||0)+(t.tax||0);
     return (t.side==='SELL'?Math.max(0,gross-fees):gross+fees)*t.fx;
   }
+  function externalFundingTwd(data){
+    const seen=new Set();let total=0;
+    for(const holding of data?.externalHoldings||[]){
+      for(const event of Array.isArray(holding.fundingHistory)?holding.fundingHistory:[]){
+        const amount=Number(event.originalTwd);
+        if(!finite(amount)||amount<=0)continue;
+        const key=[holding.venue||'',event.date||'',event.source||'',amount,event.amountUsdt??''].join('|');
+        if(seen.has(key))continue;seen.add(key);total+=amount;
+      }
+    }
+    return total;
+  }
+  function securitiesCashSummary(data){
+    const snapshot=normalizeSecuritiesCash(data?.meta?.securitiesCash);
+    const pendingTwd=snapshot.pendingSettlements.reduce((sum,item)=>sum+item.amount*item.fx,0);
+    const availableTwd=snapshot.accountBalanceTwd-snapshot.reservedTwd;
+    return {...snapshot,configured:snapshot.enabled&&Boolean(snapshot.asOf),availableTwd,pendingTwd,postSettlementTwd:snapshot.accountBalanceTwd+pendingTwd};
+  }
   function fundSummary(data,result){
     const plan=normalizeFundPlan(data?.meta?.fundPlan),profile=normalizeCapitalTracking(data?.meta?.capitalTracking),computed=result||compute(data);
     const buckets={
@@ -195,7 +238,9 @@
       b.netGainKnown=b.equityKnown-b.allocation;
       b.usagePct=b.allocation?(b.allocation-b.available)/b.allocation*100:NaN;
     }
-    return {plan,buckets,totalPlan:plan.longTerm+plan.swing+plan.loan+plan.reserve,investmentPlan:plan.longTerm+plan.swing,protectedPlan:plan.loan+plan.reserve,cashAdjustmentTwd:profile.cashAdjustmentTwd,investmentAvailable:buckets['長期'].available+buckets['波段'].available+profile.cashAdjustmentTwd};
+    const grossInvestmentAvailable=buckets['長期'].available+buckets['波段'].available+profile.cashAdjustmentTwd;
+    const externalFunding=Math.max(externalFundingTwd(data),normalizeSecuritiesCash(data?.meta?.securitiesCash).externalInvestmentTransfersTwd);
+    return {plan,buckets,totalPlan:plan.longTerm+plan.swing+plan.loan+plan.reserve,investmentPlan:plan.longTerm+plan.swing,protectedPlan:plan.loan+plan.reserve,cashAdjustmentTwd:profile.cashAdjustmentTwd,externalFundingTwd:externalFunding,grossInvestmentAvailable,investmentAvailable:grossInvestmentAvailable-externalFunding};
   }
   function capitalSummary(data,currentPnlTwd){
     const profile=normalizeCapitalTracking(data?.meta?.capitalTracking),issues=[];
@@ -240,7 +285,7 @@
     };
   }
   function merge(current,incoming){
-    const d=validate(current),src=validate(incoming),report={txAdded:0,txUpdated:0,txSkipped:0,manualAdded:0,manualUpdated:0,manualSkipped:0,holdingAdded:0,holdingUpdated:0,holdingSkipped:0,changes:[]};
+    const d=validate(current),src=validate(incoming),report={txAdded:0,txUpdated:0,txSkipped:0,manualAdded:0,manualUpdated:0,manualSkipped:0,holdingAdded:0,holdingUpdated:0,holdingSkipped:0,securitiesCashUpdated:0,securitiesCashSkipped:0,changes:[]};
     for(const t of src.transactions){
       const idx=d.transactions.findIndex(x=>x.id===t.id);
       if(idx>=0){
@@ -270,6 +315,14 @@
         if(JSON.stringify(next)!==JSON.stringify(d.externalHoldings[idx])){d.externalHoldings[idx]=next;report.holdingUpdated++;report.changes.push(h.ticker+' 外部持倉快照已更新');}
         else report.holdingSkipped++;
       }else{d.externalHoldings.push(h);report.holdingAdded++;}
+    }
+    const incomingCash=src.meta.securitiesCash,currentCash=d.meta.securitiesCash;
+    if(incomingCash.enabled&&incomingCash.asOf){
+      const currentAt=currentCash.asOf?Date.parse(currentCash.asOf):-Infinity;
+      const newer=Date.parse(incomingCash.asOf)>=currentAt;
+      if(newer&&JSON.stringify(incomingCash)!==JSON.stringify(currentCash)){
+        d.meta.securitiesCash=incomingCash;report.securitiesCashUpdated=1;report.changes.push('證券戶現金快照已更新至 '+incomingCash.asOf);
+      }else report.securitiesCashSkipped=1;
     }
     // Import files cannot silently change live cash balances or quote snapshots.
     const checked=validate(d),result=compute(checked);
@@ -304,8 +357,7 @@
     const aw=avg(ratedWins),al=Math.abs(avg(ratedLosses));
     return {count:completed.length,returnCount:rated.length,winRate:completed.length?wins.length/completed.length*100:NaN,avgWin:aw,avgLoss:al,payoff:al>0?aw/al:NaN,expectancy:avg(rated)};
   }
-  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,moneyStats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,parseCapitalSetup,applyPolicy,fundSummary,capitalSummary,transactionValueTwd};
+  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,DEFAULT_SECURITIES_CASH,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,moneyStats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,normalizeSecuritiesCash,parseCapitalSetup,applyPolicy,fundSummary,securitiesCashSummary,externalFundingTwd,capitalSummary,transactionValueTwd};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.Ledger=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
-

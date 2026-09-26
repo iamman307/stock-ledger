@@ -1,3 +1,11 @@
+## v6.10.0 — 2026-09-26
+
+- 新增證券戶銀行快照：分開顯示帳面餘額、圈存、目前可用、待交割與全部交割後預估。
+- 待交割款保留原幣金額與暫估匯率；圈存不會在交割後預估中重複扣除。
+- 外部持倉的已知 TWD 入金（目前為 Binance 信貸 150,000 元）會從股票配置模型餘額扣除，但仍保留在整體投資資產與資金來源統計中。
+- 原「證券戶現金」配置推算改名為「股票配置模型餘額」，避免把預算模型誤認為銀行存款。
+- 合併匯入可安全更新較新的證券戶快照；資金配置、私人資金來源與行情仍不被覆寫。
+
 ## v6.9.1 — 2026-09-22
 
 - 新增「未分配／其他投資現金」對帳校正，不改變長期 100 萬／波段 70 萬鎖定配置，也不列入股票損益。
@@ -93,4 +101,3 @@ Verification: `node tests/ledger.test.cjs` and JavaScript syntax checks. Tests u
 Verification: `node tests/ledger.test.cjs`. Tests use synthetic records only.
 
 Limitations: no cloud sync, automatic broker OCR, weighted holding-time engine, equity-curve drawdown, corporate actions, or bot-session editor. Broker reconciliation does not prove the completeness of source records. Private corrected backups must never be committed here.
-

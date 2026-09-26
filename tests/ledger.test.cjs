@@ -65,6 +65,8 @@ test('UI script executes with empty state; CSV missing ROI is null',()=>{
  assert.match(get('perfMoney').innerHTML,/900.00/);assert.match(get('perfMoney').innerHTML,/12.00/);assert.doesNotMatch(get('perfMoney').innerHTML,/912.00/);
  get('perfScope').value='stock-tw';vm.runInContext('renderPerf({trades:demoTrades})',ctx);assert.match(get('perfMoney').innerHTML,/尚無已平倉/);
  get('perfScope').value='derivatives';vm.runInContext('renderPerf({trades:demoTrades})',ctx);assert.doesNotMatch(get('perfMoney').innerHTML,/TWD/);assert.match(get('perfMoney').innerHTML,/USDT/);
+ vm.runInContext(`db=Ledger.applyPolicy({transactions:[],manualTrades:[],externalHoldings:[],quotes:{},cash:{},meta:{securitiesCash:{enabled:true,asOf:'2026-09-26T09:07:43+08:00',accountBalanceTwd:709186,reservedTwd:39393,externalInvestmentTransfersTwd:150000,pendingSettlements:[{id:'pending',date:'2026-09-26',currency:'USD',amount:-1440.5,fx:31.7,ticker:'BE',side:'BUY'}]}}})`,ctx);
+ vm.runInContext('renderDash(Ledger.compute(db))',ctx);assert.match(get('fundOverview').innerHTML,/663,522/);assert.match(get('accountSummary').innerHTML,/銀行快照/);assert.match(get('accountSummary').innerHTML,/669,793/);assert.match(get('accountSummary').innerHTML,/45,664/);
 
 });
 test('fund estimates reconcile broker P/L without rewriting cash flows',()=>{
@@ -76,6 +78,20 @@ test('fund estimates reconcile broker P/L without rewriting cash flows',()=>{
 test('cash reconciliation adjustment stays outside locked allocation and performance',()=>{
  const d=empty();d.meta.capitalTracking={cashAdjustmentTwd:41009};const f=L.fundSummary(L.applyPolicy(d));
  assert.equal(f.totalPlan,2000000);assert.equal(f.investmentPlan,1700000);assert.equal(f.cashAdjustmentTwd,41009);assert.equal(f.investmentAvailable,1741009);
+});
+test('known external TWD funding reduces only the stock allocation model',()=>{
+ const d=empty();d.meta.capitalTracking={cashAdjustmentTwd:41009};d.externalHoldings=[{id:'binance-cash',ticker:'USDT',asset:'加密資產現金',venue:'Binance',asOf:'2026-09-19',currency:'USDT',qty:1,currentPrice:1,fundingHistory:[{date:'2026-08-09',source:'loan',originalTwd:100000,amountUsdt:3000},{date:'2026-08-25',source:'loan',originalTwd:50000,amountUsdt:1500}]}];
+ const f=L.fundSummary(L.applyPolicy(d));assert.equal(f.externalFundingTwd,150000);assert.equal(f.grossInvestmentAvailable,1741009);assert.equal(f.investmentAvailable,1591009);
+});
+test('securities cash separates book balance, reserved cash and pending settlement',()=>{
+ const d=empty();d.meta.securitiesCash={enabled:true,asOf:'2026-09-26T09:07:43+08:00',accountBalanceTwd:709186,reservedTwd:39393,pendingSettlements:[{id:'pending-be',date:'2026-09-26',currency:'USD',amount:-1440.5,fx:31.7,ticker:'BE',side:'BUY'}]};
+ const s=L.securitiesCashSummary(L.applyPolicy(d));assert.equal(s.availableTwd,669793);near(s.pendingTwd,-45663.85);near(s.postSettlementTwd,663522.15);
+});
+test('merge accepts a newer securities cash snapshot without changing private capital settings',()=>{
+ const d=empty();d.meta.capitalTracking={enabled:true,resetDate:'2026-09-10',openingLoan:100};d.meta.securitiesCash={enabled:true,asOf:'2026-09-20',accountBalanceTwd:800000,reservedTwd:0,pendingSettlements:[]};
+ const incoming=empty();incoming.meta.securitiesCash={enabled:true,asOf:'2026-09-26',accountBalanceTwd:709186,reservedTwd:39393,pendingSettlements:[]};
+ const m=L.merge(L.applyPolicy(d),L.applyPolicy(incoming));assert.equal(m.report.securitiesCashUpdated,1);assert.equal(m.db.meta.securitiesCash.accountBalanceTwd,709186);assert.equal(m.db.meta.capitalTracking.resetDate,'2026-09-10');
+ const old=empty();old.meta.securitiesCash={enabled:true,asOf:'2026-09-01',accountBalanceTwd:1,reservedTwd:0,pendingSettlements:[]};const skipped=L.merge(m.db,L.applyPolicy(old));assert.equal(skipped.report.securitiesCashSkipped,1);assert.equal(skipped.db.meta.securitiesCash.accountBalanceTwd,709186);
 });
 test('capital source tracking crystallizes P/L before new self capital',()=>{
  const d=empty();d.meta.capitalTracking={enabled:true,resetDate:'2026-09-10',openingLoan:800,openingSelf:200,openingFamily:0,loanGross:1000,loanFee:10,principalRepaid:100,interestPaid:20,pnlBaselineTwd:0,events:[{id:'fund-1',date:'2026-10-01',type:'IN',source:'self',amount:100,pnlCheckpointTwd:100,note:'salary'}]};
@@ -110,4 +126,3 @@ test('money outcomes handle empty, only wins, and only break-even records',()=>{
  for(const pnl of [0,100]){const [s]=L.moneyStats([{pnl,currency:'TWD'}]);assert.ok(Number.isNaN(s.avgLoss));assert.ok(Number.isNaN(s.payoff));assert.ok(Number.isNaN(s.normalized));}
 });
 console.log(`${tests} checks passed`);
-
