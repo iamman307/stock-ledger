@@ -1,7 +1,7 @@
-/* Stock Ledger 6.10.1 — clearer strategy-budget and bank-cash reconciliation. */
+/* Stock Ledger 6.11.0 — automatic pending-settlement workflow. */
 (function(root){
   'use strict';
-  const VERSION='6.10.1';
+  const VERSION='6.11.0';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
@@ -193,6 +193,15 @@
     const gross=t.qty*t.price,fees=(t.fee||0)+(t.tax||0);
     return (t.side==='SELL'?Math.max(0,gross-fees):gross+fees)*t.fx;
   }
+  function pendingSettlementFromTransaction(t){
+    if(!t||!['BUY','SELL'].includes(t.side))throw Error('只有買進或賣出可以建立待交割款');
+    if(!t.id||!t.date||!t.ticker||!t.currency)throw Error('交易資料不足，無法建立待交割款');
+    const gross=Number(t.qty)*Number(t.price),fees=Number(t.fee||0)+Number(t.tax||0),fx=t.currency==='TWD'?1:Number(t.fx);
+    if(!finite(gross)||gross<=0||!finite(fees)||fees<0||!finite(fx)||fx<=0)throw Error('交易金額或匯率錯誤，無法建立待交割款');
+    const amount=t.side==='BUY'?-(gross+fees):gross-fees;
+    if(!finite(amount)||amount===0||(t.side==='SELL'&&amount<0))throw Error('待交割金額錯誤');
+    return {id:'settlement-'+t.id,date:t.date,currency:t.currency,amount,fx,ticker:t.ticker,side:t.side,note:'由交易自動建立；交割後請以銀行實際帳面餘額結清。'};
+  }
   function externalFundingTwd(data){
     const seen=new Set();let total=0;
     for(const holding of data?.externalHoldings||[]){
@@ -357,7 +366,7 @@
     const aw=avg(ratedWins),al=Math.abs(avg(ratedLosses));
     return {count:completed.length,returnCount:rated.length,winRate:completed.length?wins.length/completed.length*100:NaN,avgWin:aw,avgLoss:al,payoff:al>0?aw/al:NaN,expectancy:avg(rated)};
   }
-  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,DEFAULT_SECURITIES_CASH,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,moneyStats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,normalizeSecuritiesCash,parseCapitalSetup,applyPolicy,fundSummary,securitiesCashSummary,externalFundingTwd,capitalSummary,transactionValueTwd};
+  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,DEFAULT_SECURITIES_CASH,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,moneyStats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,normalizeSecuritiesCash,parseCapitalSetup,applyPolicy,fundSummary,securitiesCashSummary,externalFundingTwd,capitalSummary,transactionValueTwd,pendingSettlementFromTransaction};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.Ledger=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

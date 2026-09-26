@@ -67,6 +67,7 @@ test('UI script executes with empty state; CSV missing ROI is null',()=>{
  get('perfScope').value='derivatives';vm.runInContext('renderPerf({trades:demoTrades})',ctx);assert.doesNotMatch(get('perfMoney').innerHTML,/TWD/);assert.match(get('perfMoney').innerHTML,/USDT/);
  vm.runInContext(`db=Ledger.applyPolicy({transactions:[],manualTrades:[],externalHoldings:[],quotes:{},cash:{},meta:{capitalTracking:{cashAdjustmentTwd:41009},securitiesCash:{enabled:true,asOf:'2026-09-26T09:07:43+08:00',accountBalanceTwd:709186,reservedTwd:39393,externalInvestmentTransfersTwd:150000,pendingSettlements:[{id:'pending',date:'2026-09-26',currency:'USD',amount:-1440.5,fx:31.7,ticker:'BE',side:'BUY'}]}}})`,ctx);
  vm.runInContext('renderDash(Ledger.compute(db))',ctx);assert.match(get('fundOverview').innerHTML,/663,522/);assert.match(get('accountSummary').innerHTML,/銀行快照/);assert.match(get('accountSummary').innerHTML,/669,793/);assert.match(get('accountSummary').innerHTML,/45,664/);
+ assert.match(get('accountSummary').innerHTML,/待交割明細（1）/);assert.match(get('accountSummary').innerHTML,/BE · 買進/);assert.match(get('accountSummary').innerHTML,/data-settle-pending="pending"/);
  assert.match(get('accountSummary').innerHTML,/策略預算剩餘/);assert.match(get('accountSummary').innerHTML,/長期＋波段策略池/);assert.match(get('accountSummary').innerHTML,/1,700,000/);assert.match(get('accountSummary').innerHTML,/\+41,009/);assert.match(get('accountSummary').innerHTML,/-150,000/);assert.match(get('accountSummary').innerHTML,/1,591,009/);assert.match(get('accountSummary').innerHTML,/不是投資損益/);
 
 });
@@ -87,6 +88,14 @@ test('known external TWD funding reduces only the stock allocation model',()=>{
 test('securities cash separates book balance, reserved cash and pending settlement',()=>{
  const d=empty();d.meta.securitiesCash={enabled:true,asOf:'2026-09-26T09:07:43+08:00',accountBalanceTwd:709186,reservedTwd:39393,pendingSettlements:[{id:'pending-be',date:'2026-09-26',currency:'USD',amount:-1440.5,fx:31.7,ticker:'BE',side:'BUY'}]};
  const s=L.securitiesCashSummary(L.applyPolicy(d));assert.equal(s.availableTwd,669793);near(s.pendingTwd,-45663.85);near(s.postSettlementTwd,663522.15);
+});
+test('new stock trades create signed pending settlements without changing capital',()=>{
+ const buy=tx('buy-be','BUY',5,288,{ticker:'BE',currency:'USD',asset:'美股',fee:.5,fx:31.7});
+ const original=JSON.stringify(buy),buyPending=L.pendingSettlementFromTransaction(buy);assert.equal(JSON.stringify(buy),original);assert.equal(buyPending.id,'settlement-buy-be');near(buyPending.amount,-1440.5);near(buyPending.amount*buyPending.fx,-45663.85);
+ const sell=tx('sell-be','SELL',15,272.1101,{ticker:'BE',currency:'USD',asset:'美股',fee:16.33,tax:.09,fx:31.7});
+ const sellPending=L.pendingSettlementFromTransaction(sell);near(sellPending.amount,4065.2315);assert.ok(sellPending.amount>0);
+ assert.throws(()=>L.pendingSettlementFromTransaction(tx('opening','INIT',5,100)));
+ assert.throws(()=>L.pendingSettlementFromTransaction(tx('bad-sale','SELL',1,1,{fee:2})));
 });
 test('merge accepts a newer securities cash snapshot without changing private capital settings',()=>{
  const d=empty();d.meta.capitalTracking={enabled:true,resetDate:'2026-09-10',openingLoan:100};d.meta.securitiesCash={enabled:true,asOf:'2026-09-20',accountBalanceTwd:800000,reservedTwd:0,pendingSettlements:[]};
