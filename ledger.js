@@ -1,7 +1,7 @@
-/* Stock Ledger 6.10.0 — bank cash snapshots, pending settlements and external funding. */
+/* Stock Ledger 6.10.1 — clearer strategy-budget and bank-cash reconciliation. */
 (function(root){
   'use strict';
-  const VERSION='6.10.0';
+  const VERSION='6.10.1';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);

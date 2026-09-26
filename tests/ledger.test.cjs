@@ -65,8 +65,9 @@ test('UI script executes with empty state; CSV missing ROI is null',()=>{
  assert.match(get('perfMoney').innerHTML,/900.00/);assert.match(get('perfMoney').innerHTML,/12.00/);assert.doesNotMatch(get('perfMoney').innerHTML,/912.00/);
  get('perfScope').value='stock-tw';vm.runInContext('renderPerf({trades:demoTrades})',ctx);assert.match(get('perfMoney').innerHTML,/尚無已平倉/);
  get('perfScope').value='derivatives';vm.runInContext('renderPerf({trades:demoTrades})',ctx);assert.doesNotMatch(get('perfMoney').innerHTML,/TWD/);assert.match(get('perfMoney').innerHTML,/USDT/);
- vm.runInContext(`db=Ledger.applyPolicy({transactions:[],manualTrades:[],externalHoldings:[],quotes:{},cash:{},meta:{securitiesCash:{enabled:true,asOf:'2026-09-26T09:07:43+08:00',accountBalanceTwd:709186,reservedTwd:39393,externalInvestmentTransfersTwd:150000,pendingSettlements:[{id:'pending',date:'2026-09-26',currency:'USD',amount:-1440.5,fx:31.7,ticker:'BE',side:'BUY'}]}}})`,ctx);
+ vm.runInContext(`db=Ledger.applyPolicy({transactions:[],manualTrades:[],externalHoldings:[],quotes:{},cash:{},meta:{capitalTracking:{cashAdjustmentTwd:41009},securitiesCash:{enabled:true,asOf:'2026-09-26T09:07:43+08:00',accountBalanceTwd:709186,reservedTwd:39393,externalInvestmentTransfersTwd:150000,pendingSettlements:[{id:'pending',date:'2026-09-26',currency:'USD',amount:-1440.5,fx:31.7,ticker:'BE',side:'BUY'}]}}})`,ctx);
  vm.runInContext('renderDash(Ledger.compute(db))',ctx);assert.match(get('fundOverview').innerHTML,/663,522/);assert.match(get('accountSummary').innerHTML,/銀行快照/);assert.match(get('accountSummary').innerHTML,/669,793/);assert.match(get('accountSummary').innerHTML,/45,664/);
+ assert.match(get('accountSummary').innerHTML,/策略預算剩餘/);assert.match(get('accountSummary').innerHTML,/長期＋波段策略池/);assert.match(get('accountSummary').innerHTML,/1,700,000/);assert.match(get('accountSummary').innerHTML,/\+41,009/);assert.match(get('accountSummary').innerHTML,/-150,000/);assert.match(get('accountSummary').innerHTML,/1,591,009/);assert.match(get('accountSummary').innerHTML,/不是投資損益/);
 
 });
 test('fund estimates reconcile broker P/L without rewriting cash flows',()=>{
