@@ -1,7 +1,7 @@
-/* Stock Ledger 6.11.0 — automatic pending-settlement workflow. */
+/* Stock Ledger 6.11.1 — crypto capital assigned inside the swing allocation. */
 (function(root){
   'use strict';
-  const VERSION='6.11.0';
+  const VERSION='6.11.1';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
@@ -247,9 +247,10 @@
       b.netGainKnown=b.equityKnown-b.allocation;
       b.usagePct=b.allocation?(b.allocation-b.available)/b.allocation*100:NaN;
     }
-    const grossInvestmentAvailable=buckets['長期'].available+buckets['波段'].available+profile.cashAdjustmentTwd;
     const externalFunding=Math.max(externalFundingTwd(data),normalizeSecuritiesCash(data?.meta?.securitiesCash).externalInvestmentTransfersTwd);
-    return {plan,buckets,totalPlan:plan.longTerm+plan.swing+plan.loan+plan.reserve,investmentPlan:plan.longTerm+plan.swing,protectedPlan:plan.loan+plan.reserve,cashAdjustmentTwd:profile.cashAdjustmentTwd,externalFundingTwd:externalFunding,grossInvestmentAvailable,investmentAvailable:grossInvestmentAvailable-externalFunding};
+    const swingStockAllocationTwd=plan.swing-externalFunding,swingAvailableTwd=buckets['波段'].available-externalFunding;
+    const grossInvestmentAvailable=buckets['長期'].available+buckets['波段'].available+profile.cashAdjustmentTwd;
+    return {plan,buckets,totalPlan:plan.longTerm+plan.swing+plan.loan+plan.reserve,investmentPlan:plan.longTerm+plan.swing,protectedPlan:plan.loan+plan.reserve,cashAdjustmentTwd:profile.cashAdjustmentTwd,externalFundingTwd:externalFunding,swingStockAllocationTwd,swingAvailableTwd,grossInvestmentAvailable,investmentAvailable:buckets['長期'].available+swingAvailableTwd+profile.cashAdjustmentTwd};
   }
   function capitalSummary(data,currentPnlTwd){
     const profile=normalizeCapitalTracking(data?.meta?.capitalTracking),issues=[];
