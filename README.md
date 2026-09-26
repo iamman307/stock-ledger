@@ -1,10 +1,10 @@
-# Stock Ledger v6.11.1
+# Stock Ledger v6.12.0
 
 Device-local investment ledger. Static GitHub Pages app; GitHub Actions publishes public quote snapshots. No user portfolio data belongs in this repository, its tests, or its history.
 
 ## Update
 
-Export a full JSON backup before updating. Open the existing Pages address and reload when the update prompt appears. The page must show v6.11.1. Never clear site storage to force an upgrade.
+Export a full JSON backup before updating. Open the existing Pages address and reload when the update prompt appears. The page must show v6.12.0. Never clear site storage to force an upgrade.
 
 The existing `stock-ledger-v2-preloaded` storage key is preserved. v6.7.0 applies the confirmed account policy once: MU, QQQM and AVGO are long-term; all other tickers are swing. The prior device data is retained in `stock-ledger-v2-preloaded-prepolicy-v6-6-0` before that migration. Use **合併匯入 JSON** for additive/corrective updates with stable IDs; use **完整還原 JSON** only for a verified complete backup that should replace all existing data. Both routes validate before writing and retain a prior snapshot.
 
@@ -15,6 +15,8 @@ v6.10.0 separates the stock-allocation model from the real securities-settlement
 v6.11.0 adds an automatic pending-settlement workflow. A newly saved BUY or SELL can create one signed pending item from its execution value, fees, tax and historical FX. The dashboard lists pending items separately; after the bank actually debits or credits the securities account, **已交割** replaces the bank snapshot with the actual book and reserved balances and removes only that pending item. Neither creating nor settling an item changes investment capital. Backfilled historical transactions can disable the option to avoid duplicating settlements that already occurred.
 
 v6.11.1 assigns known Binance/crypto principal inside the TWD 700,000 swing allocation instead of leaving it as an unassigned external deduction. The swing card now shows crypto allocation, the remaining stock-swing base and the combined swing budget remainder. Crypto/grid performance remains in USDT and stays separate from TWD stock performance; the fixed TWD amount is capital allocation, not P/L or current wallet value.
+
+v6.12.0 adds a **轉至幣安** workflow to the securities-cash card. One confirmed action stores the actual post-transfer bank balance, increases the cumulative crypto allocation and retains every pending stock settlement. This is an internal movement inside the locked swing allocation: it does not create new investment capital or P/L. A dated local transfer history is retained for audit while older snapshots without history remain compatible.
 
 v6.7.0 adds an optional device-local capital-source ledger. It is explicitly investment-only: daily spending accounts, living expenses and travel currency are excluded unless the user deliberately records money entering the investment pool. The first activation captures the current recorded investment P/L as a baseline, so earlier unknowable history is not retroactively attributed. Later contributions and withdrawals crystallize P/L at the current source ratios; stock purchases and sales require no source tag. Loan principal, repayment, interest and fees are tracked separately, and full JSON restore preserves the live device capital-source settings.
 

@@ -1,12 +1,12 @@
-/* Stock Ledger 6.11.1 — crypto capital assigned inside the swing allocation. */
+/* Stock Ledger 6.12.0 — internal transfers to crypto update allocation and bank reconciliation together. */
 (function(root){
   'use strict';
-  const VERSION='6.11.1';
+  const VERSION='6.12.0';
   const LONG_TERM_TICKERS=Object.freeze(['MU','QQQM','AVGO']);
   const DEFAULT_FUND_PLAN=Object.freeze({longTerm:1000000,swing:700000,loan:100000,reserve:200000,locked:true});
   const CAPITAL_SOURCE_KEYS=Object.freeze(['loan','self','family']);
   const DEFAULT_CAPITAL_TRACKING=Object.freeze({enabled:false,scope:'investment-only',resetDate:'',openingLoan:0,openingSelf:0,openingFamily:0,loanGross:0,loanFee:0,principalRepaid:0,interestPaid:0,excludedDailyTwd:0,cashAdjustmentTwd:0,otherPnlTwd:0,pnlBaselineTwd:0,events:[]});
-  const DEFAULT_SECURITIES_CASH=Object.freeze({enabled:false,asOf:'',accountBalanceTwd:0,reservedTwd:0,externalInvestmentTransfersTwd:0,pendingSettlements:[]});
+  const DEFAULT_SECURITIES_CASH=Object.freeze({enabled:false,asOf:'',accountBalanceTwd:0,reservedTwd:0,externalInvestmentTransfersTwd:0,externalTransfers:[],pendingSettlements:[]});
   const clone = x => JSON.parse(JSON.stringify(x));
   const finite = x => typeof x === 'number' && Number.isFinite(x);
   const has = x => x !== null && x !== undefined;
@@ -57,6 +57,16 @@
     if(!finite(accountBalanceTwd)||accountBalanceTwd<0)throw Error('證券戶帳面餘額格式錯誤');
     if(!finite(reservedTwd)||reservedTwd<0||reservedTwd>accountBalanceTwd)throw Error('證券戶圈存金額格式錯誤');
     if(!finite(externalInvestmentTransfersTwd)||externalInvestmentTransfersTwd<0)throw Error('外部投資轉出格式錯誤');
+    const transferIds=new Set();
+    const externalTransfers=(Array.isArray(s.externalTransfers)?s.externalTransfers:[]).map((raw,index)=>{
+      const label='外部投資轉出 '+(index+1);
+      if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error(label+' 格式錯誤');
+      const id=String(raw.id||''),date=String(raw.date||''),amountTwd=Number(raw.amountTwd),destination=String(raw.destination||'外部投資');
+      if(!id||transferIds.has(id))throw Error(label+' ID 缺少或重複');transferIds.add(id);
+      if(!date||!Number.isFinite(Date.parse(date)))throw Error(label+' 日期錯誤');
+      if(!finite(amountTwd)||amountTwd<=0)throw Error(label+' 金額錯誤');
+      return {id,date,amountTwd,destination,note:String(raw.note||'')};
+    });
     const ids=new Set();
     const pendingSettlements=(Array.isArray(s.pendingSettlements)?s.pendingSettlements:[]).map((raw,index)=>{
       const label='待交割 '+(index+1);
@@ -69,7 +79,25 @@
       if(!finite(fx)||fx<=0)throw Error(label+' 匯率錯誤');
       return {id,date,currency,amount,fx,ticker:String(raw.ticker||''),side:String(raw.side||''),note:String(raw.note||'')};
     });
-    return {enabled,asOf,accountBalanceTwd,reservedTwd,externalInvestmentTransfersTwd,pendingSettlements};
+    return {enabled,asOf,accountBalanceTwd,reservedTwd,externalInvestmentTransfersTwd,externalTransfers,pendingSettlements};
+  }
+  function recordExternalInvestmentTransfer(data,input){
+    const d=applyPolicy(data),raw=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
+    const cash=normalizeSecuritiesCash(d.meta.securitiesCash);
+    if(!cash.enabled||!cash.asOf)throw Error('尚未建立證券戶銀行快照');
+    const id=String(raw.id||''),date=String(raw.date||''),amountTwd=Number(raw.amountTwd),accountBalanceTwd=Number(raw.accountBalanceTwd),reservedTwd=Number(raw.reservedTwd);
+    if(!id||cash.externalTransfers.some(event=>event.id===id))throw Error('外部投資轉出 ID 缺少或重複');
+    if(!date||!Number.isFinite(Date.parse(date)))throw Error('外部投資轉出日期錯誤');
+    if(!finite(amountTwd)||amountTwd<=0)throw Error('轉出金額必須大於 0');
+    if(!finite(accountBalanceTwd)||accountBalanceTwd<0)throw Error('證券戶帳面餘額格式錯誤');
+    if(!finite(reservedTwd)||reservedTwd<0||reservedTwd>accountBalanceTwd)throw Error('圈存金額不可大於帳面餘額');
+    cash.accountBalanceTwd=accountBalanceTwd;
+    cash.reservedTwd=reservedTwd;
+    cash.asOf=date;
+    cash.externalInvestmentTransfersTwd=Math.max(cash.externalInvestmentTransfersTwd,externalFundingTwd(d))+amountTwd;
+    cash.externalTransfers.push({id,date,amountTwd,destination:String(raw.destination||'外部投資'),note:String(raw.note||'')});
+    d.meta.securitiesCash=cash;
+    return applyPolicy(d);
   }
   function parseCapitalSetup(setup){
     if(!setup||typeof setup!=='object'||Array.isArray(setup))throw Error('私人資金設定檔格式錯誤');
@@ -367,7 +395,7 @@
     const aw=avg(ratedWins),al=Math.abs(avg(ratedLosses));
     return {count:completed.length,returnCount:rated.length,winRate:completed.length?wins.length/completed.length*100:NaN,avgWin:aw,avgLoss:al,payoff:al>0?aw/al:NaN,expectancy:avg(rated)};
   }
-  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,DEFAULT_SECURITIES_CASH,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,moneyStats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,normalizeSecuritiesCash,parseCapitalSetup,applyPolicy,fundSummary,securitiesCashSummary,externalFundingTwd,capitalSummary,transactionValueTwd,pendingSettlementFromTransaction};
+  const api={VERSION,LONG_TERM_TICKERS,DEFAULT_FUND_PLAN,DEFAULT_CAPITAL_TRACKING,DEFAULT_SECURITIES_CASH,CAPITAL_SOURCE_KEYS,validate,compute,merge,stats,moneyStats,sameManual,manualKey,classifyAccount,normalizeFundPlan,normalizeCapitalTracking,normalizeSecuritiesCash,parseCapitalSetup,applyPolicy,fundSummary,securitiesCashSummary,externalFundingTwd,capitalSummary,transactionValueTwd,pendingSettlementFromTransaction,recordExternalInvestmentTransfer};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.Ledger=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

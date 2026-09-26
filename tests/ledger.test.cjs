@@ -68,6 +68,7 @@ test('UI script executes with empty state; CSV missing ROI is null',()=>{
  vm.runInContext(`db=Ledger.applyPolicy({transactions:[],manualTrades:[],externalHoldings:[],quotes:{},cash:{},meta:{capitalTracking:{cashAdjustmentTwd:41009},securitiesCash:{enabled:true,asOf:'2026-09-26T09:07:43+08:00',accountBalanceTwd:709186,reservedTwd:39393,externalInvestmentTransfersTwd:150000,pendingSettlements:[{id:'pending',date:'2026-09-26',currency:'USD',amount:-1440.5,fx:31.7,ticker:'BE',side:'BUY'}]}}})`,ctx);
  vm.runInContext('renderDash(Ledger.compute(db))',ctx);assert.match(get('fundOverview').innerHTML,/663,522/);assert.match(get('accountSummary').innerHTML,/銀行快照/);assert.match(get('accountSummary').innerHTML,/669,793/);assert.match(get('accountSummary').innerHTML,/45,664/);
  assert.match(get('accountSummary').innerHTML,/待交割明細（1）/);assert.match(get('accountSummary').innerHTML,/BE · 買進/);assert.match(get('accountSummary').innerHTML,/data-settle-pending="pending"/);
+ assert.match(get('accountSummary').innerHTML,/data-record-external-transfer/);assert.match(get('accountSummary').innerHTML,/轉至幣安/);assert.match(get('accountSummary').innerHTML,/累計轉至幣安/);
  assert.match(get('accountSummary').innerHTML,/波段策略剩餘/);assert.match(get('accountSummary').innerHTML,/加密交易配置/);assert.match(get('accountSummary').innerHTML,/-150,000/);assert.match(get('accountSummary').innerHTML,/股票波段基礎額度/);assert.match(get('accountSummary').innerHTML,/550,000/);assert.match(get('accountSummary').innerHTML,/\+41,009/);assert.match(get('accountSummary').innerHTML,/1,591,009/);assert.match(get('accountSummary').innerHTML,/不是投資損益/);
 
 });
@@ -84,6 +85,14 @@ test('cash reconciliation adjustment stays outside locked allocation and perform
 test('known external TWD funding is assigned inside the swing allocation',()=>{
  const d=empty();d.meta.capitalTracking={cashAdjustmentTwd:41009};d.externalHoldings=[{id:'binance-cash',ticker:'USDT',asset:'加密資產現金',venue:'Binance',asOf:'2026-09-19',currency:'USDT',qty:1,currentPrice:1,fundingHistory:[{date:'2026-08-09',source:'loan',originalTwd:100000,amountUsdt:3000},{date:'2026-08-25',source:'loan',originalTwd:50000,amountUsdt:1500}]}];
  const f=L.fundSummary(L.applyPolicy(d));assert.equal(f.externalFundingTwd,150000);assert.equal(f.swingStockAllocationTwd,550000);assert.equal(f.swingAvailableTwd,550000);assert.equal(f.grossInvestmentAvailable,1741009);assert.equal(f.investmentAvailable,1591009);
+});
+test('internal Binance transfer updates bank snapshot and crypto allocation without touching settlements',()=>{
+ const d=empty();d.externalHoldings=[{id:'binance-cash',ticker:'USDT',asset:'加密資產現金',venue:'Binance',asOf:'2026-09-19',currency:'USDT',qty:1,currentPrice:1,fundingHistory:[{date:'2026-08-09',source:'loan',originalTwd:100000},{date:'2026-08-25',source:'loan',originalTwd:50000}]}];d.meta.securitiesCash={enabled:true,asOf:'2026-09-26T09:00:00+08:00',accountBalanceTwd:709186,reservedTwd:39393,externalInvestmentTransfersTwd:0,pendingSettlements:[{id:'pending-be',date:'2026-09-26',currency:'USD',amount:-1440.5,fx:31.7,ticker:'BE',side:'BUY'}]};
+ const next=L.recordExternalInvestmentTransfer(d,{id:'to-binance-20260926',date:'2026-09-26T18:00:00+08:00',amountTwd:100000,accountBalanceTwd:609186,reservedTwd:39393,destination:'Binance',note:'證券交割戶轉至幣安'});
+ const cash=L.securitiesCashSummary(next),fund=L.fundSummary(next);
+ assert.equal(cash.accountBalanceTwd,609186);assert.equal(cash.reservedTwd,39393);assert.equal(cash.pendingSettlements.length,1);assert.equal(cash.externalInvestmentTransfersTwd,250000);assert.equal(cash.externalTransfers.length,1);
+ assert.equal(fund.externalFundingTwd,250000);assert.equal(fund.swingStockAllocationTwd,450000);assert.equal(fund.swingAvailableTwd,450000);
+ assert.throws(()=>L.recordExternalInvestmentTransfer(next,{id:'bad',date:'2026-09-26',amountTwd:0,accountBalanceTwd:609186,reservedTwd:0}));
 });
 test('securities cash separates book balance, reserved cash and pending settlement',()=>{
  const d=empty();d.meta.securitiesCash={enabled:true,asOf:'2026-09-26T09:07:43+08:00',accountBalanceTwd:709186,reservedTwd:39393,pendingSettlements:[{id:'pending-be',date:'2026-09-26',currency:'USD',amount:-1440.5,fx:31.7,ticker:'BE',side:'BUY'}]};
