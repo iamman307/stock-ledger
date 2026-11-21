@@ -1,0 +1,230 @@
+{
+  "updated": "2026-11-21T00:05:56.233223+00:00",
+  "source": "Yahoo Finance via GitHub Actions",
+  "usdTwd": 32.985,
+  "fxUpdated": "2026-11-20",
+  "fxSource": "Frankfurter",
+  "quotes": {
+    "QQQM": {
+      "symbol": "QQQM",
+      "yahooSymbol": "QQQM",
+      "price": 251.23,
+      "currency": "USD",
+      "exchange": "NGM",
+      "marketState": "",
+      "previousClose": 279.97,
+      "updated": "2026-11-21T00:05:51.161994+00:00"
+    },
+    "AVGO": {
+      "symbol": "AVGO",
+      "yahooSymbol": "AVGO",
+      "price": 304.41,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 347.01,
+      "updated": "2026-11-21T00:05:51.372281+00:00"
+    },
+    "MU": {
+      "symbol": "MU",
+      "yahooSymbol": "MU",
+      "price": 594.51,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 778.31,
+      "updated": "2026-11-21T00:05:51.594631+00:00"
+    },
+    "TSLA": {
+      "symbol": "TSLA",
+      "yahooSymbol": "TSLA",
+      "price": 345.82,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 390.22,
+      "updated": "2026-11-21T00:05:51.795499+00:00"
+    },
+    "PGR": {
+      "symbol": "PGR",
+      "yahooSymbol": "PGR",
+      "price": 231.39,
+      "currency": "USD",
+      "exchange": "NYQ",
+      "marketState": "",
+      "previousClose": 235.78,
+      "updated": "2026-11-21T00:05:52.018771+00:00"
+    },
+    "POWR": {
+      "symbol": "POWR",
+      "yahooSymbol": "POWR",
+      "price": 23.27,
+      "currency": "USD",
+      "exchange": "PCX",
+      "marketState": "",
+      "previousClose": 24.87,
+      "updated": "2026-11-21T00:05:52.241556+00:00"
+    },
+    "PRGS": {
+      "symbol": "PRGS",
+      "yahooSymbol": "PRGS",
+      "price": 39.94,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 43.78,
+      "updated": "2026-11-21T00:05:52.444716+00:00"
+    },
+    "CAT": {
+      "symbol": "CAT",
+      "yahooSymbol": "CAT",
+      "price": 510.45,
+      "currency": "USD",
+      "exchange": "NYQ",
+      "marketState": "",
+      "previousClose": 600.2,
+      "updated": "2026-11-21T00:05:52.700790+00:00"
+    },
+    "VOO": {
+      "symbol": "VOO",
+      "yahooSymbol": "VOO",
+      "price": 635.54,
+      "currency": "USD",
+      "exchange": "PCX",
+      "marketState": "",
+      "previousClose": 693.38,
+      "updated": "2026-11-21T00:05:52.924066+00:00"
+    },
+    "XLV": {
+      "symbol": "XLV",
+      "yahooSymbol": "XLV",
+      "price": 177.24,
+      "currency": "USD",
+      "exchange": "PCX",
+      "marketState": "",
+      "previousClose": 188.85,
+      "updated": "2026-11-21T00:05:53.151302+00:00"
+    },
+    "JPM": {
+      "symbol": "JPM",
+      "yahooSymbol": "JPM",
+      "price": 310.53,
+      "currency": "USD",
+      "exchange": "NYQ",
+      "marketState": "",
+      "previousClose": 346.19,
+      "updated": "2026-11-21T00:05:53.388354+00:00"
+    },
+    "BE": {
+      "symbol": "BE",
+      "yahooSymbol": "BE",
+      "price": 142.39,
+      "currency": "USD",
+      "exchange": "NYQ",
+      "marketState": "",
+      "previousClose": 191.99,
+      "updated": "2026-11-21T00:05:53.598583+00:00"
+    },
+    "RKLB": {
+      "symbol": "RKLB",
+      "yahooSymbol": "RKLB",
+      "price": 45.42,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 61.53,
+      "updated": "2026-11-21T00:05:53.800134+00:00"
+    },
+    "CLS": {
+      "symbol": "CLS",
+      "yahooSymbol": "CLS",
+      "price": 201.8,
+      "currency": "USD",
+      "exchange": "NYQ",
+      "marketState": "",
+      "previousClose": 240.34,
+      "updated": "2026-11-21T00:05:54.004428+00:00"
+    },
+    "CRDO": {
+      "symbol": "CRDO",
+      "yahooSymbol": "CRDO",
+      "price": 99.86,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 131.51,
+      "updated": "2026-11-21T00:05:54.213433+00:00"
+    },
+    "SNDK": {
+      "symbol": "SNDK",
+      "yahooSymbol": "SNDK",
+      "price": 79.24,
+      "currency": "USD",
+      "exchange": "NMS",
+      "marketState": "",
+      "previousClose": 110.626,
+      "updated": "2026-11-21T00:05:54.420470+00:00"
+    },
+    "GLW": {
+      "symbol": "GLW",
+      "yahooSymbol": "GLW",
+      "price": 94.38,
+      "currency": "USD",
+      "exchange": "NYQ",
+      "marketState": "",
+      "previousClose": 114.08,
+      "updated": "2026-11-21T00:05:54.654222+00:00"
+    },
+    "2421": {
+      "symbol": "2421",
+      "yahooSymbol": "2421.TW",
+      "price": 111.0,
+      "currency": "TWD",
+      "exchange": "TAI",
+      "marketState": "",
+      "previousClose": 127.0,
+      "updated": "2026-11-21T00:05:54.870367+00:00"
+    },
+    "2356": {
+      "symbol": "2356",
+      "yahooSymbol": "2356.TW",
+      "price": 39.25,
+      "currency": "TWD",
+      "exchange": "TAI",
+      "marketState": "",
+      "previousClose": 43.0,
+      "updated": "2026-11-21T00:05:55.083269+00:00"
+    },
+    "5351": {
+      "symbol": "5351",
+      "yahooSymbol": "5351.TWO",
+      "price": 71.6,
+      "currency": "TWD",
+      "exchange": "TWO",
+      "marketState": "",
+      "previousClose": 89.0,
+      "updated": "2026-11-21T00:05:55.330713+00:00"
+    },
+    "2330": {
+      "symbol": "2330",
+      "yahooSymbol": "2330.TW",
+      "price": 2000.0,
+      "currency": "TWD",
+      "exchange": "TAI",
+      "marketState": "",
+      "previousClose": 2215.0,
+      "updated": "2026-11-21T00:05:55.550858+00:00"
+    },
+    "0050": {
+      "symbol": "0050",
+      "yahooSymbol": "0050.TW",
+      "price": 84.45,
+      "currency": "TWD",
+      "exchange": "TAI",
+      "marketState": "",
+      "previousClose": 96.45,
+      "updated": "2026-11-21T00:05:55.770581+00:00"
+    }
+  },
+  "errors": []
+}
